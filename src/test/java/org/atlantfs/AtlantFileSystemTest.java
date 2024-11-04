@@ -18,21 +18,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(MockitoExtension.class)
 class AtlantFileSystemTest {
 
-    AtlantFileSystem fileSystem;
+    private AtlantFileSystem fileSystem;
+    private @Mock AtlantFileSystemProvider fileSystemProvider;
 
     @BeforeEach
     void beforeEach() throws IOException {
-    }
-
-    @Test
-    void new_shouldOpen(@Mock AtlantFileSystemProvider fileSystemProvider) throws IOException {
         // Given
         Path storage = Paths.get("test.fs");
         // When
-        try (AtlantFileSystem fileSystem = new AtlantFileSystem(fileSystemProvider, storage, Map.of())) {
+        fileSystem = new AtlantFileSystem(fileSystemProvider, storage, Map.of());
+    }
+
+    @Test
+    void new_shouldOpen() {
+        // Then
+        assertThat(fileSystem.isOpen()).isTrue();
+    }
+
+    @Nested
+    class WhenCreated {
+
+        @Test
+        void new_shouldOpen() {
             // Then
             assertThat(fileSystem.isOpen()).isTrue();
         }
+
     }
 
     @AfterEach
@@ -41,11 +52,6 @@ class AtlantFileSystemTest {
         fileSystem.close();
         // Then
         assertThat(fileSystem.isOpen()).isFalse();
-    }
-
-    @Nested
-    class WhenCreated {
-
     }
 
 }

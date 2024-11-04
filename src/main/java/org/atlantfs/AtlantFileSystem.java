@@ -1,10 +1,11 @@
 package org.atlantfs;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.channels.FileChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.WatchService;
@@ -13,36 +14,111 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
+import static java.nio.file.StandardOpenOption.READ;
 
 public class AtlantFileSystem extends FileSystem {
 
-    private final AtlantFileSystemProvider fileSystemProvider;
-    private final Path storage;
-    private final RandomAccessFile writer;
-    private final FileChannel channel;
+    public static final String BLOCK_SIZE = "block-size";
 
-    public AtlantFileSystem(AtlantFileSystemProvider fileSystemProvider, Path storage, Map<String, ?> env) throws IOException {
-        this.fileSystemProvider = fileSystemProvider;
-        this.storage = storage;
-        String orDefault = Optional.ofNullable(env.get("mode")).map(Object::toString).orElse("rw");
-        this.writer = new RandomAccessFile(storage.toAbsolutePath().toFile(), orDefault);
-        this.channel = writer.getChannel();
+    private final AtlantFileSystemProvider provider;
+    private final SuperBlock superBlock;
+    private final Bitmap blockBitmap;
+    private final Bitmap inodeBitmap;
+    //    private final InodeTable inodeTable;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private volatile boolean isOpen = true;
+
+    public AtlantFileSystem(AtlantFileSystemProvider provider, Path path, Map<String, ?> env) throws IOException {
+        this.provider = provider;
+        if (Files.exists(path)) {
+            try (SeekableByteChannel channel = Files.newByteChannel(path, READ)) {
+                this.superBlock = SuperBlock.read(channel);
+                int blockSize = superBlock.getBlockSize();
+                this.blockBitmap = Bitmap.read(channel, 1 * blockSize, blockSize);
+                this.inodeBitmap = Bitmap.read(channel, 2 * blockSize, blockSize);
+            }
+        } else {
+            try (SeekableByteChannel channel = Files.newByteChannel(path, CREATE_NEW)) {
+                int blockSize = Optional.ofNullable(env.get(BLOCK_SIZE))
+                        .filter(Integer.class::isInstance)
+                        .map(Integer.class::cast)
+                        .orElseGet(AtlantFileSystem::getUnderlyingBlockSize);
+                this.superBlock = SuperBlock.create(channel, blockSize);
+                this.blockBitmap = Bitmap.create(channel, 1 * blockSize, blockSize);
+                this.inodeBitmap = Bitmap.create(channel, 2 * blockSize, blockSize);
+            }
+        }
     }
 
     @Override
     public FileSystemProvider provider() {
-        return fileSystemProvider;
+        return provider;
     }
 
     @Override
     public void close() throws IOException {
-        writer.close();
-        channel.close();
+        beginWrite();
+        try {
+            if (!isOpen) {
+                return;
+            }
+            isOpen = false;          // set closed
+        } finally {
+            endWrite();
+        }
+//        if (!streams.isEmpty()) {    // unlock and close all remaining streams
+//            Set<InputStream> copy = new HashSet<>(streams);
+//            for (InputStream is : copy) {
+//                is.close();
+//            }
+//        }
+//        beginWrite();                // lock and sync
+//        try {
+////            AccessController.doPrivileged((PrivilegedExceptionAction<Void>) () -> {
+////                sync();
+////                return null;
+////            });
+//            channel.close();              // close the ch just in case no update
+//            // and sync didn't close the ch
+//        } finally {
+//            endWrite();
+//        }
+//
+//        beginWrite();                // lock and sync
+//        try {
+//            // Clear the map so that its keys & values can be garbage collected
+//            inodes = null;
+//        } finally {
+//            endWrite();
+//        }
+//
+//        IOException ioe = null;
+//        synchronized (tmppaths) {
+//            for (Path p : tmppaths) {
+//                try {
+//                    AccessController.doPrivileged(
+//                            (PrivilegedExceptionAction<Boolean>) () -> Files.deleteIfExists(p));
+//                } catch (PrivilegedActionException e) {
+//                    IOException x = (IOException) e.getException();
+//                    if (ioe == null)
+//                        ioe = x;
+//                    else
+//                        ioe.addSuppressed(x);
+//                }
+//            }
+//        }
+//        provider.removeFileSystem(zfpath, this);
+//        if (ioe != null)
+//            throw ioe;
     }
 
     @Override
     public boolean isOpen() {
-        return false;
+        return isOpen;
     }
 
     @Override
@@ -89,4 +165,25 @@ public class AtlantFileSystem extends FileSystem {
     public WatchService newWatchService() throws IOException {
         return null;
     }
+
+    private void beginWrite() {
+        lock.writeLock().lock();
+    }
+
+    private void endWrite() {
+        lock.writeLock().unlock();
+    }
+
+    private static int getUnderlyingBlockSize() {
+        try {
+            return Math.toIntExact(FileSystems.getDefault()
+                    .getFileStores()
+                    .iterator()
+                    .next()
+                    .getBlockSize());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
