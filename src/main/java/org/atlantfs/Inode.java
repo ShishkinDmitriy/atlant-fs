@@ -1,17 +1,11 @@
 package org.atlantfs;
 
-import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
 import java.util.logging.Logger;
 
-public class Inode {
+class Inode {
 
     private static final Logger log = Logger.getLogger(Inode.class.getName());
     public static final int EXT2_GOOD_OLD_INODE_SIZE = 128;
-    /**
-     * Inode 0 is used for a null value, which means that there is no inode.
-     */
-    public static final int NULL = 0;
 
     /**
      * the data constituting the inode itself
@@ -27,6 +21,17 @@ public class Inode {
     private volatile int locked;
 
     private AtlantFileSystem fs;
+
+    record Id(int value) {
+
+        static final int LENGTH = 4;
+
+        /**
+         * Inode 0 is used for a null value, which means that there is no inode.
+         */
+        public static final Id NULL = new Id(0);
+
+    }
 
 //    static Bitmap create(SeekableByteChannel channel, long position, int blockSize) throws IOException {
 //        log.finer(() -> "Creating inode [position=" + position + ", size=" + blockSize + "]...");

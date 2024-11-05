@@ -2,11 +2,13 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-public enum FileType {
+enum FileType {
 
     UNKNOWN((byte) 0),
     REGULAR_FILE((byte) 1),
     DIRECTORY((byte) 2);
+
+    static final int LENGTH = 1;
 
     private final byte value;
 
@@ -15,7 +17,7 @@ public enum FileType {
     }
 
     static FileType read(ByteBuffer buffer) {
-        byte value = buffer.get();
+        var value = buffer.get();
         return switch (value) {
             case 0 -> UNKNOWN;
             case 1 -> REGULAR_FILE;

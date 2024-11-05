@@ -9,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
@@ -24,7 +23,7 @@ class AtlantFileSystemTest {
     @BeforeEach
     void beforeEach() throws IOException {
         // Given
-        Path storage = Paths.get("test.fs");
+        var storage = Paths.get("test.fs");
         // When
         fileSystem = new AtlantFileSystem(fileSystemProvider, storage, Map.of());
     }

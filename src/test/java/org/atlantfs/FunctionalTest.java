@@ -15,9 +15,9 @@ class FunctionalTest {
     @Test
     void newFileSystem_shouldCreateNewInstance() throws IOException {
         // Given
-        URI uri = URI.create("atlant:test.fs!/");
+        var uri = URI.create("atlant:test.fs!/");
         // When
-        FileSystem fileSystem = FileSystems.newFileSystem(uri, Map.of());
+        var fileSystem = FileSystems.newFileSystem(uri, Map.of());
         // Then
         assertThat(fileSystem).isNotNull();
         assertThat(fileSystem.isOpen()).isTrue();
