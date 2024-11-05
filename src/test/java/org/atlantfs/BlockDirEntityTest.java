@@ -278,7 +278,9 @@ class BlockDirEntityTest {
         @CsvSource(value = {
                 // Lengths     | Names   | Rename | Rename len|
                 "  16,16,16,16 | a,b,c,d | a      |         9 ",
-                "  16,16,32,16 | a,b,c,d | a      |         9 ", // After delete a and c can split for 8, but required 16
+                "  16,16,32,16 | a,b,c,d | a      |         9 ", // After delete both a and c can split for 8, but required 16
+                "  32,16,16,16 | a,b,c,d | c      |         9 ",
+                "  32,16,16,16 | a,b,c,d | d      |         9 ",
         }, delimiter = '|')
         void should_throw_when_notEnoughSpaceToRelocate(
                 @ConvertWith(CommaSeparatedListConverter.class) List<Short> lengths,

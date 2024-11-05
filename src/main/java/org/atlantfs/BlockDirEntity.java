@@ -58,12 +58,11 @@ final class BlockDirEntity extends Block {
     DirEntry add(Inode.Id inode, FileType fileType, String name) {
         DirEntry newEntry;
         if (isEmpty()) {
-            DirEntry entry = entries.getFirst();
-            newEntry = entry.split(inode, fileType, name);
+            newEntry = entries.getFirst();
+            newEntry.init(inode, fileType, name);
         } else {
             var index = findByAvailableSpace(name);
-            var entry = entries.get(index);
-            newEntry = entry.split(inode, fileType, name);
+            newEntry = entries.get(index).split(inode, fileType, name);
             entries.add(index + 1, newEntry);
         }
         checkInvariant();

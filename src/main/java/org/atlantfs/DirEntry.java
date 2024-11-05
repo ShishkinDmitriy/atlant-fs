@@ -42,6 +42,11 @@ class DirEntry {
      */
     static final short ENTRY_MIN_LENGTH = Inode.Id.LENGTH + 2 + 1 + FileType.LENGTH;
 
+    /**
+     * Maximum length of name.
+     * <p>
+     * Limited by 1 byte of storage.
+     */
     static final short NAME_MAX_LENGTH = 255;
 
     /**
@@ -57,19 +62,19 @@ class DirEntry {
     /**
      * Position in block.
      * <p>
-     * Not persisted.
+     * Value is not persisted.
      */
     private transient int position;
-
-    /**
-     * Inode number.
-     */
-    private Inode.Id inode;
 
     /**
      * Dir entry length.
      */
     private short length;
+
+    /**
+     * Inode number.
+     */
+    private Inode.Id inode;
 
     /**
      * File type.
@@ -81,6 +86,11 @@ class DirEntry {
      */
     private String name;
 
+    /**
+     * Flag indicating that Dir entry should be written on disk.
+     * <p>
+     * Value is not persisted.
+     */
     private transient boolean dirty;
 
     private DirEntry(int position, short length, Inode.Id inode, FileType fileType, String name) {
@@ -180,16 +190,11 @@ class DirEntry {
     }
 
     DirEntry split(Inode.Id anotherInode, FileType anotherFileType, String anotherName) {
+        if (isEmpty()) {
+            throw new IllegalStateException("Can't split empty entry, use init method instead");
+        }
         if (!canBeSplit(anotherName)) {
             throw new IllegalArgumentException("Not enough space to split");
-        }
-        if (isEmpty()) {
-            inode = anotherInode;
-            fileType = anotherFileType;
-            name = anotherName;
-            dirty = true;
-            checkInvariant();
-            return this;
         }
         var oldLength = length;
         length = aligned(name);
@@ -249,14 +254,26 @@ class DirEntry {
         checkInvariant();
     }
 
+    void init(Inode.Id anotherInode, FileType anotherFileType, String anotherName) {
+        if (!isEmpty()) {
+            throw new IllegalStateException("Dir entry already initialized");
+        }
+        inode = anotherInode;
+        fileType = anotherFileType;
+        name = anotherName;
+        dirty = true;
+        checkInvariant();
+    }
+
     /**
      * Called when it's single record in block, and it should be deleted.
      * <p>
      * Will mark entry as dirty.
+     *
+     * @see #init(Inode.Id, FileType, String)
      */
     void delete() {
-        if (inode.equals(Inode.Id.NULL)) {
-            // To prevent dirty on already deleted
+        if (isEmpty()) { // To prevent dirty on already deleted
             return;
         }
         inode = Inode.Id.NULL;

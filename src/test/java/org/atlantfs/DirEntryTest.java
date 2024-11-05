@@ -124,6 +124,31 @@ class DirEntryTest {
     }
 
     @Nested
+    class Init {
+
+        @Test
+        void should_setNewValues() {
+            // Given
+            short length = (short) 4096;
+            var entry = DirEntry.empty(length);
+            Inode.Id inode = new Inode.Id(randomInt());
+            String name = randomString(255);
+            // When
+            entry.init(inode, FileType.REGULAR_FILE, name);
+            // Then
+            assertSoftly(softly -> {
+                softly.assertThat(entry.getPosition()).describedAs("Entry should has the same position").isEqualTo(0);
+                softly.assertThat(entry.getLength()).describedAs("Entry should has the same length").isEqualTo(length);
+                softly.assertThat(entry.getName()).isEqualTo(name);
+                softly.assertThat(entry.getInode()).isEqualTo(inode);
+                softly.assertThat(entry.isDirty()).isTrue();
+                softly.assertThat(entry.isEmpty()).isFalse();
+            });
+        }
+
+    }
+
+    @Nested
     class Split {
 
         @ParameterizedTest
@@ -156,24 +181,13 @@ class DirEntryTest {
         }
 
         @Test
-        void should_mutateExistingEntry_when_emptyEntry() {
+        void should_throwIllegalStateException_when_splitEmpty() {
             // Given
-            short length = (short) 4096;
-            var entry = DirEntry.empty(length);
-            Inode.Id inode = new Inode.Id(randomInt());
-            String name = randomString(255);
-            // When
-            var result = entry.split(inode, FileType.REGULAR_FILE, name);
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result).describedAs("Should return same entry").isSameAs(entry);
-            assertSoftly(softly -> {
-                softly.assertThat(entry.getPosition()).describedAs("Entry should has the same position").isEqualTo(0);
-                softly.assertThat(entry.getLength()).describedAs("Entry should has the same length").isEqualTo(length);
-                softly.assertThat(entry.getName()).isEqualTo(name);
-                softly.assertThat(entry.getInode()).isEqualTo(inode);
-                softly.assertThat(entry.isDirty()).isTrue();
-            });
+            var entry = DirEntry.empty((short) 4096);
+            // When Then
+            assertThatThrownBy(() -> entry.split(new Inode.Id(randomInt()), FileType.DIRECTORY, randomString(1)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Can't split empty entry, use init method instead");
         }
 
     }
