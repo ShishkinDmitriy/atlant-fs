@@ -33,8 +33,9 @@ class InodeTableTest {
         lenient().when(superBlock.getBlockSize()).thenReturn(4096);
     }
 
+    //region InodeTable::get
     @Test
-    void get(@Mock SeekableByteChannel channel) {
+    void get_should_findInodeInChannel(@Mock SeekableByteChannel channel) {
         // Given
         var inodeTable = new InodeTable(fileSystem, new Block.Id(9), 120);
         // When
@@ -44,20 +45,23 @@ class InodeTableTest {
     }
 
     @Test
-    void get_should_useCache(@Mock SeekableByteChannel channel) throws IOException {
+    void get_should_useCache_when_searchSameInodeId(@Mock SeekableByteChannel channel) throws IOException {
         // Given
         var inodeTable = new InodeTable(fileSystem, new Block.Id(9), 120);
+        var inodeId = new Inode.Id(53);
         // When
-        inodeTable.get(new Inode.Id(53), channel);
+        inodeTable.get(inodeId, channel);
         // Then
         verify(channel).position(anyLong());
         verify(channel).read(any(ByteBuffer.class));
         // When
-        inodeTable.get(new Inode.Id(53), channel);
+        inodeTable.get(inodeId, channel);
         // Then
         verifyNoMoreInteractions(channel);
     }
+    //endregion
 
+    //region InodeTable::calcBlock
     @CsvSource({
             // inode | block size | first | expected
             "       1,         128,      0,       0",
@@ -70,13 +74,15 @@ class InodeTableTest {
             "      33,        4096,    150,     151",
     })
     @ParameterizedTest
-    void calcBlock(int inodeId, int blockSize, int firstBlock, int expectedResult) {
+    void calcBlock_should_calculateBlockId(int inodeId, int blockSize, int firstBlock, int expectedResult) {
         // When
         var result = InodeTable.calcBlock(new Inode.Id(inodeId), blockSize, new Block.Id(firstBlock));
         // Then
         assertThat(result).isEqualTo(new Block.Id(expectedResult));
     }
+    //endregion
 
+    //region InodeTable::calcPosition
     @CsvSource({
             // inode | block size | expected
             "       1,         128,       0",
@@ -89,11 +95,12 @@ class InodeTableTest {
             "      33,        4096,       0",
     })
     @ParameterizedTest
-    void calcPosition(int inodeId, int blockSize, int expectedResult) {
+    void calcPosition_should_calculatePositionInsideBlock(int inodeId, int blockSize, int expectedResult) {
         // When
         var result = InodeTable.calcPosition(new Inode.Id(inodeId), blockSize);
         // Then
         assertThat(result).isEqualTo(expectedResult);
     }
+    //endregion
 
 }
