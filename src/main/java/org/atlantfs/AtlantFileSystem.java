@@ -186,4 +186,8 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
+    SuperBlock getSuperBlock() {
+        return superBlock;
+    }
+
 }

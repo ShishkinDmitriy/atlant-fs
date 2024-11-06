@@ -1,16 +1,24 @@
 package org.atlantfs;
 
+import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
 class Inode {
 
     private static final Logger log = Logger.getLogger(Inode.class.getName());
-    public static final int EXT2_GOOD_OLD_INODE_SIZE = 128;
+    static final int LENGTH = 128;
 
     /**
-     * the data constituting the inode itself
+     * Size in bytes.
      */
-    private byte[] data;
+    private long size;
+
+    /**
+     * Blocks count.
+     */
+    private long blocksCount;
+
+    private IBlock iBlock;
 
     private volatile boolean dirty;
 
@@ -41,14 +49,10 @@ class Inode {
 //        assert written == result.bitmap.capacity();
 //        return result;
 //    }
-//
-//    static Bitmap read(SeekableByteChannel channel, long position, int blockSize) throws IOException {
-//        Bitmap result = new Bitmap(blockSize);
-//        channel.position(position);
-//        int read = channel.read(result.bitmap);
-//        assert read == result.bitmap.capacity();
-//        return result;
-//    }
 
+    static Inode read(ByteBuffer buffer) {
+        buffer.position(buffer.position() + LENGTH);
+        return new Inode();
+    }
 
 }
