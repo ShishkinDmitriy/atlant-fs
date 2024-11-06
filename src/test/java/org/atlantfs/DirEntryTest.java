@@ -33,7 +33,7 @@ class DirEntryTest {
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
             softly.assertThat(result.getPosition()).isEqualTo(0);
-            softly.assertThat(result.getInode()).isEqualTo(new Inode.Id(123456));
+            softly.assertThat(result.getInode()).isEqualTo(Inode.Id.of(123456));
             softly.assertThat(result.getLength()).isEqualTo((short) 16);
             softly.assertThat(result.getFileType()).isEqualTo(FileType.REGULAR_FILE);
             softly.assertThat(result.getName()).isEqualTo("dir");
@@ -78,7 +78,7 @@ class DirEntryTest {
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
             softly.assertThat(result.getPosition()).isEqualTo(16);
-            softly.assertThat(result.getInode()).isEqualTo(new Inode.Id(654321));
+            softly.assertThat(result.getInode()).isEqualTo(Inode.Id.of(654321));
             softly.assertThat(result.getLength()).isEqualTo((short) 16);
             softly.assertThat(result.getFileType()).isEqualTo(FileType.DIRECTORY);
             softly.assertThat(result.getName()).isEqualTo("dir2");
@@ -125,7 +125,7 @@ class DirEntryTest {
         // Given
         short length = (short) 4096;
         var entry = DirEntry.empty(length);
-        Inode.Id inode = new Inode.Id(randomInt());
+        Inode.Id inode = Inode.Id.of(randomInt());
         String name = randomString(255);
         // When
         entry.init(inode, FileType.REGULAR_FILE, name);
@@ -153,9 +153,9 @@ class DirEntryTest {
     })
     void split_should_returnNewEntry(short position, short length, short nameLength, short anotherNameLength, short expectedLength, short expectedAnotherPosition, short expectedAnotherLength) {
         // Given
-        var entry = DirEntry.create(position, length, new Inode.Id(randomInt()), FileType.REGULAR_FILE, randomString(nameLength));
+        var entry = DirEntry.create(position, length, Inode.Id.of(randomInt()), FileType.REGULAR_FILE, randomString(nameLength));
         // When
-        var result = entry.split(new Inode.Id(randomInt()), FileType.REGULAR_FILE, randomString(anotherNameLength));
+        var result = entry.split(Inode.Id.of(randomInt()), FileType.REGULAR_FILE, randomString(anotherNameLength));
         // Then
         assertSoftly(softly -> {
             softly.assertThat(entry.isDirty()).describedAs("Initial entry should marked as dirty").isTrue();
@@ -176,7 +176,7 @@ class DirEntryTest {
         // Given
         var entry = DirEntry.empty((short) 4096);
         // When Then
-        assertThatThrownBy(() -> entry.split(new Inode.Id(randomInt()), FileType.DIRECTORY, randomString(1)))
+        assertThatThrownBy(() -> entry.split(Inode.Id.of(randomInt()), FileType.DIRECTORY, randomString(1)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Can't split empty entry, use init method instead");
     }
@@ -200,7 +200,7 @@ class DirEntryTest {
     })
     void canBeSplit_should_returnTrueOrFalse(short length, short nameLength, short anotherNameLength, boolean expectedResult) {
         // Given
-        var entry = DirEntry.create(randomInt(), length, new Inode.Id(randomInt()), FileType.REGULAR_FILE, randomString(nameLength));
+        var entry = DirEntry.create(randomInt(), length, Inode.Id.of(randomInt()), FileType.REGULAR_FILE, randomString(nameLength));
         // When
         var result = entry.canBeSplit(anotherNameLength);
         // Then
@@ -225,7 +225,7 @@ class DirEntryTest {
         // Given
         String name = randomString(nameLength);
         String newName = randomString(newNameLength);
-        var entry = DirEntry.create(randomInt(), length, new Inode.Id(randomInt()), FileType.REGULAR_FILE, name);
+        var entry = DirEntry.create(randomInt(), length, Inode.Id.of(randomInt()), FileType.REGULAR_FILE, name);
         // When
         boolean result = entry.rename(newName);
         // Then

@@ -38,9 +38,9 @@ class InodeTableTest {
     @Test
     void get_should_findInodeInChannel(@Mock SeekableByteChannel channel) {
         // Given
-        var inodeTable = new InodeTable(fileSystem, new Block.Id(9), 120);
+        var inodeTable = new InodeTable(fileSystem, Block.Id.of(9), 120);
         // When
-        var result = inodeTable.get(new Inode.Id(53), channel);
+        var result = inodeTable.get(Inode.Id.of(53), channel);
         // Then
         assertThat(result).isNotNull();
     }
@@ -48,8 +48,8 @@ class InodeTableTest {
     @Test
     void get_should_useCache_when_searchSameInodeId(@Mock SeekableByteChannel channel) throws IOException {
         // Given
-        var inodeTable = new InodeTable(fileSystem, new Block.Id(9), 120);
-        var inodeId = new Inode.Id(53);
+        var inodeTable = new InodeTable(fileSystem, Block.Id.of(9), 120);
+        var inodeId = Inode.Id.of(53);
         // When
         inodeTable.get(inodeId, channel);
         // Then
@@ -77,9 +77,9 @@ class InodeTableTest {
     @ParameterizedTest
     void calcBlock_should_calculateBlockId(int inodeId, int blockSize, int firstBlock, int expectedResult) {
         // When
-        var result = InodeTable.calcBlock(new Inode.Id(inodeId), blockSize, new Block.Id(firstBlock));
+        var result = InodeTable.calcBlock(Inode.Id.of(inodeId), blockSize, Block.Id.of(firstBlock));
         // Then
-        assertThat(result).isEqualTo(new Block.Id(expectedResult));
+        assertThat(result).isEqualTo(Block.Id.of(expectedResult));
     }
     //endregion
 
@@ -98,7 +98,7 @@ class InodeTableTest {
     @ParameterizedTest
     void calcPosition_should_calculatePositionInsideBlock(int inodeId, int blockSize, int expectedResult) {
         // When
-        var result = InodeTable.calcPosition(new Inode.Id(inodeId), blockSize);
+        var result = InodeTable.calcPosition(Inode.Id.of(inodeId), blockSize);
         // Then
         assertThat(result).isEqualTo(expectedResult);
     }

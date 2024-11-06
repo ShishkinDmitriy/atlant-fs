@@ -134,7 +134,7 @@ class DirEntry {
         var initial = buffer.position();
         try {
             log.fine(() -> "Reading Dir entry [position=" + initial + "]...");
-            var inode = new Inode.Id(buffer.getInt());
+            var inode = Inode.Id.of(buffer.getInt());
             var length = buffer.getShort();
             if (length <= ENTRY_MIN_LENGTH) {
                 throw new IllegalArgumentException("Too small Dir entry [length=" + length + "]");

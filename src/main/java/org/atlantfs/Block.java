@@ -6,6 +6,11 @@ sealed class Block permits BlockData {
     protected int length;
 
     record Id(int value) {
+
+        static Id of(int value) {
+            return new Id(value);
+        }
+
     }
 
 }

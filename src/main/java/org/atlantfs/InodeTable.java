@@ -37,7 +37,7 @@ class InodeTable {
                 throw new RuntimeException(e); // TODO
             }
             Inode result = null;
-            var currentId = new Inode.Id((blockSize / Inode.LENGTH) * (blockId.value() - firstBlock.value()));
+            var currentId = Inode.Id.of((blockSize / Inode.LENGTH) * (blockId.value() - firstBlock.value()));
             while (buffer.hasRemaining()) {
                 var currentInode = Inode.read(buffer);
                 if (currentId.equals(id)) {
@@ -45,7 +45,7 @@ class InodeTable {
                 } else {
                     toAdd.put(currentId, new SoftReference<>(currentInode));
                 }
-                currentId = new Inode.Id(currentId.value() + 1);
+                currentId = Inode.Id.of(currentId.value() + 1);
             }
             assert result != null;
             return new SoftReference<>(result);
@@ -59,7 +59,7 @@ class InodeTable {
     }
 
     static Block.Id calcBlock(Inode.Id inodeId, int blockSize, Block.Id firstBlock) {
-        return new Block.Id(firstBlock.value() + (inodeId.value() - 1) * Inode.LENGTH / blockSize);
+        return Block.Id.of(firstBlock.value() + (inodeId.value() - 1) * Inode.LENGTH / blockSize);
     }
 
     static int calcPosition(Inode.Id inodeId, int blockSize) {

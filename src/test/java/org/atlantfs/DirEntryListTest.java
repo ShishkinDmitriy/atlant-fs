@@ -118,7 +118,7 @@ class DirEntryListTest {
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
         for (int i = 0; i < lengths.size(); i++) {
-            entries.add(DirEntry.create(pos, lengths.get(i), new Inode.Id(randomInt()), FileType.DIRECTORY, names.get(i)));
+            entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
         var block = new DirEntryList(pos, entries);
@@ -139,7 +139,7 @@ class DirEntryListTest {
         var position = 0;
         var length = (short) 1024;
         var name = randomString(255);
-        var entry = DirEntry.create(position, length, new Inode.Id(123), FileType.DIRECTORY, name);
+        var entry = DirEntry.create(position, length, Inode.Id.of(123), FileType.DIRECTORY, name);
         var block = new DirEntryList(length, List.of(entry));
         // When
         block.delete(name);
@@ -180,12 +180,12 @@ class DirEntryListTest {
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
         for (int i = 0; i < lengths.size(); i++) {
-            entries.add(DirEntry.create(pos, lengths.get(i), new Inode.Id(randomInt()), FileType.DIRECTORY, names.get(i)));
+            entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
         var block = new DirEntryList(pos, entries);
         // When
-        var result = block.add(new Inode.Id(randomInt()), FileType.REGULAR_FILE, nameToAdd);
+        var result = block.add(Inode.Id.of(randomInt()), FileType.REGULAR_FILE, nameToAdd);
         // Then
         assertThat(result).isNotNull();
         assertThat(result.isDirty()).isTrue();
@@ -201,7 +201,7 @@ class DirEntryListTest {
     void should_mutateExistingEntry_when_emptyEntry() {
         // Given
         short length = (short) 4096;
-        Inode.Id inode = new Inode.Id(randomInt());
+        Inode.Id inode = Inode.Id.of(randomInt());
         String name = randomString(255);
         var block = new DirEntryList(length);
         // When
@@ -249,7 +249,7 @@ class DirEntryListTest {
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
         for (int i = 0; i < lengths.size(); i++) {
-            entries.add(DirEntry.create(pos, lengths.get(i), new Inode.Id(randomInt()), FileType.DIRECTORY, names.get(i)));
+            entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
         var block = new DirEntryList(pos, entries);
@@ -282,7 +282,7 @@ class DirEntryListTest {
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
         for (int i = 0; i < lengths.size(); i++) {
-            entries.add(DirEntry.create(pos, lengths.get(i), new Inode.Id(randomInt()), FileType.DIRECTORY, names.get(i)));
+            entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
         var block = new DirEntryList(pos, entries);

@@ -39,6 +39,10 @@ class Inode {
          */
         public static final Id NULL = new Id(0);
 
+        static Id of(int value) {
+            return new Id(value);
+        }
+
     }
 
 //    static Bitmap create(SeekableByteChannel channel, long position, int blockSize) throws IOException {
