@@ -11,19 +11,20 @@ import java.util.stream.IntStream;
 /**
  * Represent single block with a list of {@link DirEntry}.
  */
-final class BlockDirEntity extends Block {
+final class DirEntryList {
 
-    private static final Logger log = Logger.getLogger(BlockDirEntity.class.getName());
+    private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
+    private final int length;
     private final List<DirEntry> entries;
 
-    public BlockDirEntity(int length, List<DirEntry> entries) {
+    public DirEntryList(int length, List<DirEntry> entries) {
         this.length = length;
         this.entries = entries;
         checkInvariant();
     }
 
-    public BlockDirEntity(int length) {
+    public DirEntryList(int length) {
         List<DirEntry> entries = new ArrayList<>();
         entries.add(DirEntry.empty((short) length));
         this.length = length;
@@ -31,7 +32,7 @@ final class BlockDirEntity extends Block {
         checkInvariant();
     }
 
-    static BlockDirEntity read(ByteBuffer buffer) {
+    static DirEntryList read(ByteBuffer buffer) {
         List<DirEntry> entries = new ArrayList<>();
         var length = buffer.remaining();
         while (buffer.hasRemaining()) {
@@ -50,7 +51,7 @@ final class BlockDirEntity extends Block {
                 break;
             }
         }
-        var block = new BlockDirEntity(length, entries);
+        var block = new DirEntryList(length, entries);
         block.checkInvariant();
         return block;
     }

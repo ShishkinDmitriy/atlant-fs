@@ -1,6 +1,6 @@
 package org.atlantfs;
 
-sealed class Block permits BlockData, BlockDirEntity {
+sealed class Block permits BlockData {
 
     protected int number;
     protected int length;
