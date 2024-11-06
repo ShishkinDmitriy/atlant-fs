@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -14,7 +15,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, LoggingExtension.class})
 class AtlantFileSystemTest {
 
     private AtlantFileSystem fileSystem;

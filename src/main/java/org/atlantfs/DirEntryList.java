@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 /**
- * Represent single block with a list of {@link DirEntry}.
+ * Represent a list of {@link DirEntry}.
  */
 final class DirEntryList {
 
@@ -75,7 +75,7 @@ final class DirEntryList {
     }
 
     void rename(String name, String newName) throws NoSuchFileException {
-        log.fine(() -> "Renaming entry [name=" + name + "]...");
+        log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
         var entry = entries.get(index);
@@ -86,6 +86,8 @@ final class DirEntryList {
         log.fine(() -> "Can't rename without increasing size, will relocate...");
         delete(index);
         add(entry.getInode(), entry.getFileType(), newName);
+        checkInvariant();
+        log.fine(() -> "Successfully renamed entry [oldName=" + name + ", newName=" + newName + "]");
     }
 
     void delete(String name) throws NoSuchFileException {
@@ -93,9 +95,11 @@ final class DirEntryList {
         var index = findByName(name);
         log.finer(() -> "Found entry to delete [index=" + index + "]");
         delete(index);
+        checkInvariant();
     }
 
     void delete(int index) {
+        log.fine(() -> "Deleting entry [index=" + index + "]...");
         var entry = entries.get(index);
         if (entries.size() == 1) {
             log.finer(() -> "Marking entry as empty...");

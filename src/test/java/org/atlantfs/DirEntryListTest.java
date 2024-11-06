@@ -1,7 +1,9 @@
 package org.atlantfs;
 
 import org.atlantfs.util.CommaSeparatedListConverter;
+import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.converter.ConvertWith;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -17,6 +19,7 @@ import static org.atlantfs.util.ByteBufferUtil.byteBuffer;
 import static org.atlantfs.util.RandomUtil.randomInt;
 import static org.atlantfs.util.RandomUtil.randomString;
 
+@ExtendWith(LoggingExtension.class)
 class DirEntryListTest {
 
     //region DirEntryList::read

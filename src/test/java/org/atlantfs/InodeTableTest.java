@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, LoggingExtension.class})
 class InodeTableTest {
 
     @Mock

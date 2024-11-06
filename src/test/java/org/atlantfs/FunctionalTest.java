@@ -1,6 +1,8 @@
 package org.atlantfs;
 
+import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.net.URI;
@@ -9,6 +11,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(LoggingExtension.class)
 class FunctionalTest {
 
     @Test
