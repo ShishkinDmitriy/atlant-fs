@@ -40,9 +40,10 @@ class InodeTable {
             var currentId = new Inode.Id((blockSize / Inode.LENGTH) * (blockId.value() - firstBlock.value()));
             while (buffer.hasRemaining()) {
                 var currentInode = Inode.read(buffer);
-                toAdd.put(currentId, new SoftReference<>(currentInode));
                 if (currentId.equals(id)) {
                     result = currentInode;
+                } else {
+                    toAdd.put(currentId, new SoftReference<>(currentInode));
                 }
                 currentId = new Inode.Id(currentId.value() + 1);
             }
