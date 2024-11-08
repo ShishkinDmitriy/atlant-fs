@@ -17,4 +17,8 @@ public class RandomUtil {
         return RANDOM.nextInt();
     }
 
+    public static long randomLong() {
+        return RANDOM.nextLong();
+    }
+
 }

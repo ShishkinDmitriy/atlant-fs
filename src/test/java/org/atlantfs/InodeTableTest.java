@@ -9,13 +9,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -32,33 +27,34 @@ class InodeTableTest {
     void beforeEach() {
         lenient().when(fileSystem.getSuperBlock()).thenReturn(superBlock);
         lenient().when(superBlock.getBlockSize()).thenReturn(4096);
+        lenient().when(superBlock.getInodeTableFirstBlock()).thenReturn(Block.Id.of(9));
+        lenient().when(superBlock.getInodeTablesNumberOfBlocks()).thenReturn(120);
     }
 
     //region InodeTable::get
     @Test
-    void get_should_findInodeInChannel(@Mock SeekableByteChannel channel) {
+    void get_should_findInodeInChannel() {
         // Given
-        var inodeTable = new InodeTable(fileSystem, Block.Id.of(9), 120);
+        var inodeTable = new InodeTable(fileSystem);
         // When
-        var result = inodeTable.get(Inode.Id.of(53), channel);
+        var result = inodeTable.get(Inode.Id.of(53));
         // Then
         assertThat(result).isNotNull();
     }
 
     @Test
-    void get_should_useCache_when_searchSameInodeId(@Mock SeekableByteChannel channel) throws IOException {
+    void get_should_useCache_when_searchSameInodeId() {
         // Given
-        var inodeTable = new InodeTable(fileSystem, Block.Id.of(9), 120);
+        var inodeTable = new InodeTable(fileSystem);
         var inodeId = Inode.Id.of(53);
         // When
-        inodeTable.get(inodeId, channel);
+        inodeTable.get(inodeId);
         // Then
-        verify(channel).position(anyLong());
-        verify(channel).read(any(ByteBuffer.class));
+        verify(fileSystem).readBlock(any(Block.Id.class));
         // When
-        inodeTable.get(inodeId, channel);
+        inodeTable.get(inodeId);
         // Then
-        verifyNoMoreInteractions(channel);
+        verifyNoMoreInteractions(fileSystem);
     }
     //endregion
 

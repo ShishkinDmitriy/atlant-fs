@@ -12,6 +12,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.ProviderMismatchException;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
@@ -54,21 +55,29 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
 
     @Override
     public Path getPath(URI uri) {
+        String str = uri.getSchemeSpecificPart();
+        int i = str.indexOf("!/");
+        if (i == -1) {
+            throw new IllegalArgumentException("URI: " + uri + " does not contain path info ex. github:apache/karaf#master!/");
+        }
         return null;
+//        return getFileSystem(uri, true).getPath(str.substring(i + 1));
     }
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-//        if (!(path instanceof OneFilePath)) {
-//            throw new ProviderMismatchException();
-//        }
-//        return ((OneFilePath) path).getFileSystem().newByteChannel(path, options, attrs);
-        return null;
+        if (!(path instanceof AtlantPath)) {
+            throw new ProviderMismatchException();
+        }
+        return ((AtlantPath) path).getFileSystem().newByteChannel(path, options, attrs);
     }
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        return null;
+        if (!(dir instanceof AtlantPath atlantPath)) {
+            throw new ProviderMismatchException();
+        }
+        return atlantPath.getFileSystem().newDirectoryStream(atlantPath, filter);
     }
 
     @Override
@@ -92,8 +101,8 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
     }
 
     @Override
-    public boolean isSameFile(Path path, Path path2) throws IOException {
-        return false;
+    public boolean isSameFile(Path path, Path path2) {
+        return path.toAbsolutePath().equals(path2.toAbsolutePath());
     }
 
     @Override
@@ -108,7 +117,6 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
-
     }
 
     @Override
@@ -128,6 +136,6 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
-
     }
+
 }

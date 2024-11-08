@@ -9,11 +9,6 @@ class Inode {
     static final int LENGTH = 128;
 
     /**
-     * Size in bytes.
-     */
-    private long size;
-
-    /**
      * Blocks count.
      */
     private long blocksCount;
@@ -30,7 +25,11 @@ class Inode {
 
     private AtlantFileSystem fs;
 
-    record Id(int value) {
+    int getLength(){
+        return fs.getSuperBlock().getInodeSize();
+    }
+
+    record Id(int value) implements AbstractId {
 
         static final int LENGTH = 4;
 
@@ -39,8 +38,31 @@ class Inode {
          */
         public static final Id NULL = new Id(0);
 
+        /**
+         * Inode 1 is used for root directory.
+         */
+        public static final Id ROOT = new Id(1);
+
         static Id of(int value) {
             return new Id(value);
+        }
+
+    }
+
+    record Range(Inode.Id from, int length) implements AbstractRange<Id> {
+
+        static Inode.Range of(Inode.Id from, int length) {
+            assert from.value >= 0;
+            assert length > 0;
+            return new Inode.Range(from, length);
+        }
+
+        @Override
+        public String toString() {
+            return "Inode.Range{" +
+                    "from=" + from +
+                    ", length=" + length +
+                    '}';
         }
 
     }

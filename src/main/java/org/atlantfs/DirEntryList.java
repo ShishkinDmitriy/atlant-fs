@@ -15,7 +15,16 @@ final class DirEntryList {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
+    /**
+     * The number of bytes occupied by this list.
+     * <p>
+     * Can be equal to whole block or i_block size.
+     */
     private final int length;
+
+    /**
+     * List of Dir entries.
+     */
     private final List<DirEntry> entries;
 
     public DirEntryList(int length, List<DirEntry> entries) {
@@ -120,11 +129,11 @@ final class DirEntryList {
     }
 
     int findByName(String name) throws NoSuchFileException {
+        if (isEmpty()) {
+            throw new NoSuchFileException("File [" + name + "] was not found");
+        }
         return IntStream.range(0, entries.size())
-                .filter(i -> {
-                    DirEntry entry = entries.get(i);
-                    return !entry.isEmpty() && entry.getName().equals(name);
-                })
+                .filter(i -> entries.get(i).getName().equals(name))
                 .findAny()
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
