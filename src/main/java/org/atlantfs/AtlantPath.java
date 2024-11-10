@@ -35,6 +35,18 @@ public class AtlantPath implements Path {
     }
 
     @Override
+    public String toString() {
+        return new String(path, StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof AtlantPath
+                && ((AtlantPath) obj).fileSystem == fileSystem
+                && compareTo((AtlantPath) obj) == 0;
+    }
+
+    @Override
     public AtlantFileSystem getFileSystem() {
         return fileSystem;
     }

@@ -1,12 +1,9 @@
 package org.atlantfs;
 
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -29,7 +26,7 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
     /**
      * Cache of bitmaps blocks.
      */
-    private final Map<Block.Id, SoftReference<Bitmap>> cache = new ConcurrentHashMap<>();
+    private final Cache<Block.Id, Bitmap> cache = new Cache<>();
 
     /**
      * The number of first bitmap with free space.
@@ -40,6 +37,16 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
 
     AbstractBitmapRegion(AtlantFileSystem fileSystem) {
         this.fileSystem = fileSystem;
+    }
+
+    void writeEmpty() {
+        for (int i = 0; i < numberOfBlocks(); i++) {
+            fileSystem.writeBlock(firstBlock().plus(i), buffer -> {
+                while (buffer.hasRemaining()) {
+                    buffer.putInt(0);
+                }
+            });
+        }
     }
 
     /**
@@ -203,8 +210,8 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
             var buffer = fileSystem.readBlock(id);
             var bitmap = Bitmap.read(buffer);
             log.finer(() -> "Successfully read bitmap [bitmapNumber=" + bitmapNumber + ", block=" + id + "]...");
-            return new SoftReference<>(bitmap);
-        }).get();
+            return bitmap;
+        });
     }
 
     private void markAsOccupied(int bitmapNumber) {

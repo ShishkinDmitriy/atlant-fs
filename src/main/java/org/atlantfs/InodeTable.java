@@ -1,45 +1,61 @@
 package org.atlantfs;
 
-import java.lang.ref.SoftReference;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 class InodeTable implements AbstractRegion {
 
     private final AtlantFileSystem fileSystem;
-    private final Map<Inode.Id, SoftReference<Inode>> cache = new ConcurrentHashMap<>();
+    private final Cache<Inode.Id, Inode> cache = new Cache<>();
+    private final Inode root;
 
     InodeTable(AtlantFileSystem fileSystem) {
+        this(fileSystem, null);
+    }
+
+    InodeTable(AtlantFileSystem fileSystem, Inode root) {
         this.fileSystem = fileSystem;
+        if (root == null) {
+            try {
+                root = createDirectory();
+                assert root.getId().equals(Inode.Id.ROOT) : "Expected ROOT id, but was [" + root.getId() + "]";
+            } catch (BitmapRegionOutOfMemoryException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        this.root = root;
+    }
+
+    static InodeTable read(AtlantFileSystem fileSystem) {
+        var buffer = fileSystem.readInode(Inode.Id.ROOT);
+        var root = Inode.read(fileSystem, buffer, Inode.Id.ROOT);
+        return new InodeTable(fileSystem, root);
     }
 
     Inode get(Inode.Id inodeId) {
-        var toAdd = new HashMap<Inode.Id, SoftReference<Inode>>();
-        var inodeSoftReference = cache.computeIfAbsent(inodeId, id -> {
-            if (id.value() > maxInodeCount()) {
-                throw new IllegalArgumentException("Out of bounds");
-            }
-            var firstBlock = firstBlock();
-            var blockSize = blockSize();
-            var blockId = calcBlock(id, blockSize, firstBlock);
-            var buffer = fileSystem.readBlock(blockId);
-            Inode result = null;
-            var currentId = Inode.Id.of((blockSize / Inode.LENGTH) * (blockId.value() - firstBlock.value()));
-            while (buffer.hasRemaining()) {
-                var currentInode = Inode.read(buffer);
-                if (currentId.equals(id)) {
-                    result = currentInode;
-                } else {
-                    toAdd.put(currentId, new SoftReference<>(currentInode));
-                }
-                currentId = Inode.Id.of(currentId.value() + 1);
-            }
-            assert result != null;
-            return new SoftReference<>(result);
+        if (inodeId.value() > maxInodeCount()) {
+            throw new IndexOutOfBoundsException("Inode [" + inodeId + "] is out of bounds [" + maxInodeCount() + "]");
+        }
+        return cache.computeIfAbsent(inodeId, id -> {
+            var buffer = fileSystem.readInode(id);
+            return Inode.read(fileSystem, buffer, id);
         });
-        cache.putAll(toAdd);
-        return inodeSoftReference.get();
+    }
+
+    public Inode createFile() throws BitmapRegionOutOfMemoryException {
+        var reserved = fileSystem.reserveInode();
+        var inode = Inode.createRegularFile(fileSystem, reserved);
+        cache.put(reserved, inode);
+        return inode;
+    }
+
+    public Inode createDirectory() throws BitmapRegionOutOfMemoryException {
+        var reserved = fileSystem.reserveInode();
+        var inode = Inode.createDirectory(fileSystem, reserved);
+        cache.put(reserved, inode);
+        return inode;
+    }
+
+    void delete(Inode.Id inodeId) {
+        fileSystem.freeInode(inodeId);
+        cache.remove(inodeId);
     }
 
     private int maxInodeCount() {
@@ -66,4 +82,7 @@ class InodeTable implements AbstractRegion {
         return fileSystem.getSuperBlock().getInodeTablesNumberOfBlocks();
     }
 
+    public Inode getRoot() {
+        return root;
+    }
 }

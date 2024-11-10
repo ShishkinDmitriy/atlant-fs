@@ -1,25 +1,34 @@
 package org.atlantfs;
 
-class Block<T> {
+import java.nio.ByteBuffer;
 
-    private Id id;
-    private int length;
-    private T content;
-    private Class<T> type;
+interface Block {
 
-    public Block(Id id, int length, T content, Class<T> type) {
-        this.id = id;
-        this.length = length;
-        this.content = content;
-        this.type = type;
-    }
+//    private Id id;
+//    private int length;
+//    private T content;
+//    private Class<T> type;
+//
+//    public Block(Id id, int length, T content, Class<T> type) {
+//        this.id = id;
+//        this.length = length;
+//        this.content = content;
+//        this.type = type;
+//    }
 
     record Id(int value) implements AbstractId {
+
+        static final int LENGTH = 4;
 
         static final Id ZERO = new Id(0);
 
         static Id of(int value) {
             return new Id(value);
+        }
+
+        static Id read(ByteBuffer buffer) {
+            var address = buffer.getInt();
+            return Id.of(address);
         }
 
         Id plus(int val) {

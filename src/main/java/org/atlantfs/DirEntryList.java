@@ -3,6 +3,7 @@ package org.atlantfs;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -11,7 +12,7 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList {
+final class DirEntryList implements DirectoryOperations {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
@@ -20,7 +21,7 @@ final class DirEntryList {
      * <p>
      * Can be equal to whole block or i_block size.
      */
-    private final int length;
+    private int length;
 
     /**
      * List of Dir entries.
@@ -65,7 +66,16 @@ final class DirEntryList {
         return block;
     }
 
-    DirEntry add(Inode.Id inode, FileType fileType, String name) {
+    void write(ByteBuffer buffer) {
+        // TODO
+    }
+
+    public Iterator<DirEntry> iterator() {
+        return entries.iterator();
+    }
+
+    @Override
+    public DirEntry add(Inode.Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
@@ -79,11 +89,13 @@ final class DirEntryList {
         return newEntry;
     }
 
-    DirEntry get(String name) throws NoSuchFileException {
+    @Override
+    public DirEntry get(String name) throws NoSuchFileException {
         return entries.get(findByName(name));
     }
 
-    void rename(String name, String newName) throws NoSuchFileException {
+    @Override
+    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
         log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
@@ -99,7 +111,8 @@ final class DirEntryList {
         log.fine(() -> "Successfully renamed entry [oldName=" + name + ", newName=" + newName + "]");
     }
 
-    void delete(String name) throws NoSuchFileException {
+    @Override
+    public void delete(String name) throws NoSuchFileException {
         log.fine(() -> "Deleting entry [name=" + name + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to delete [index=" + index + "]");
@@ -138,11 +151,19 @@ final class DirEntryList {
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
 
-    int findByAvailableSpace(String newName) {
+    int findByAvailableSpace(String newName) throws DirectoryOutOfMemoryException {
         return IntStream.range(0, entries.size())
                 .filter(i -> entries.get(i).canBeSplit(newName))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Not enough space"));
+                .orElseThrow(() -> new DirEntryListOfMemoryException("Not enough space"));
+    }
+
+    public void resize(int newLength) {
+        if (newLength < length) {
+            throw new IllegalArgumentException("Can't reduce length");
+        }
+        entries.getLast().growAfter((short) (newLength - length));
+        this.length = newLength;
     }
 
     /**

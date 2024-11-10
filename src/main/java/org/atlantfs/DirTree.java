@@ -1,10 +1,10 @@
 package org.atlantfs;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
+import java.nio.file.NoSuchFileException;
+import java.util.Iterator;
 
-class DirTree {
+class DirTree implements DirectoryOperations, Block {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;
@@ -13,11 +13,22 @@ class DirTree {
         this.fileSystem = fileSystem;
     }
 
-//    static DirTree read(AtlantFileSystem fileSystem, ByteBuffer buffer) {
-//        return new DirTree(fileSystem);
-//    }
+    static DirTree read(AtlantFileSystem fileSystem, ByteBuffer buffer) {
+        return new DirTree(fileSystem);
+    }
 
-    DirEntry get(String name) throws IOException {
+    @Override
+    public Iterator<DirEntry> iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public DirEntry add(Inode.Id inode, FileType fileType, String name) {
+        return null;
+    }
+
+    @Override
+    public DirEntry get(String name) throws NoSuchFileException {
         var block = root.get(name);
         for (var i = 0; i < root.getDepth(); i++) {
             var buffer = fileSystem.readBlock(block);
@@ -27,6 +38,16 @@ class DirTree {
         var buffer = fileSystem.readBlock(block);
         var dirEntryList = DirEntryList.read(buffer);
         return dirEntryList.get(name);
+    }
+
+    @Override
+    public void rename(String name, String newName) throws NoSuchFileException {
+
+    }
+
+    @Override
+    public void delete(String name) throws NoSuchFileException {
+
     }
 
 }

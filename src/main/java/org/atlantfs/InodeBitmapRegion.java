@@ -11,7 +11,7 @@ class InodeBitmapRegion extends AbstractBitmapRegion<Inode.Id, Inode.Range> {
 
     @Override
     Inode.Id applyOffset(int bitmapNumber, int position) {
-        return Inode.Id.of(bitmapNumber * blockSize() * 8 + position);
+        return Inode.Id.of(bitmapNumber * blockSize() * 8 + position + 1);
     }
 
     @Override

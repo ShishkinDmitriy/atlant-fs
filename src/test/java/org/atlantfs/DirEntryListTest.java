@@ -175,7 +175,7 @@ class DirEntryListTest {
             String nameToAdd,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirectoryOutOfMemoryException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -198,7 +198,7 @@ class DirEntryListTest {
     }
 
     @Test
-    void should_mutateExistingEntry_when_emptyEntry() {
+    void should_mutateExistingEntry_when_emptyEntry() throws DirectoryOutOfMemoryException {
         // Given
         short length = (short) 4096;
         Inode.Id inode = Inode.Id.of(randomInt());
@@ -244,7 +244,7 @@ class DirEntryListTest {
             int newNameLength,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirectoryOutOfMemoryException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
