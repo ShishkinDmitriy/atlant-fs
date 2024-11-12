@@ -1,16 +1,16 @@
 package org.atlantfs;
 
-class InodeTable implements AbstractRegion {
+class InodeTableRegion implements AbstractRegion {
 
     private final AtlantFileSystem fileSystem;
     private final Cache<Inode.Id, Inode> cache = new Cache<>();
     private final Inode root;
 
-    InodeTable(AtlantFileSystem fileSystem) {
+    InodeTableRegion(AtlantFileSystem fileSystem) {
         this(fileSystem, null);
     }
 
-    InodeTable(AtlantFileSystem fileSystem, Inode root) {
+    InodeTableRegion(AtlantFileSystem fileSystem, Inode root) {
         this.fileSystem = fileSystem;
         if (root == null) {
             try {
@@ -23,16 +23,14 @@ class InodeTable implements AbstractRegion {
         this.root = root;
     }
 
-    static InodeTable read(AtlantFileSystem fileSystem) {
+    static InodeTableRegion read(AtlantFileSystem fileSystem) {
         var buffer = fileSystem.readInode(Inode.Id.ROOT);
         var root = Inode.read(fileSystem, buffer, Inode.Id.ROOT);
-        return new InodeTable(fileSystem, root);
+        return new InodeTableRegion(fileSystem, root);
     }
 
     Inode get(Inode.Id inodeId) {
-        if (inodeId.value() > maxInodeCount()) {
-            throw new IndexOutOfBoundsException("Inode [" + inodeId + "] is out of bounds [" + maxInodeCount() + "]");
-        }
+        checkInodeIdLimit(inodeId);
         return cache.computeIfAbsent(inodeId, id -> {
             var buffer = fileSystem.readInode(id);
             return Inode.read(fileSystem, buffer, id);
@@ -41,6 +39,7 @@ class InodeTable implements AbstractRegion {
 
     public Inode createFile() throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveInode();
+        checkInodeIdLimit(reserved);
         var inode = Inode.createRegularFile(fileSystem, reserved);
         cache.put(reserved, inode);
         return inode;
@@ -48,41 +47,57 @@ class InodeTable implements AbstractRegion {
 
     public Inode createDirectory() throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveInode();
+        checkInodeIdLimit(reserved);
         var inode = Inode.createDirectory(fileSystem, reserved);
         cache.put(reserved, inode);
         return inode;
     }
 
     void delete(Inode.Id inodeId) {
+        checkInodeIdLimit(inodeId);
         fileSystem.freeInode(inodeId);
         cache.remove(inodeId);
     }
 
+    private void checkInodeIdLimit(Inode.Id inodeId) {
+        if (inodeId.value() > maxInodeCount()) {
+            throw new IndexOutOfBoundsException("Inode [" + inodeId + "] is out of bounds [" + maxInodeCount() + "]");
+        }
+    }
+
     private int maxInodeCount() {
-        return numberOfBlocks() * (blockSize() / Inode.LENGTH);
+        return numberOfBlocks() * (blockSize() / inodeSize());
     }
 
-    static Block.Id calcBlock(Inode.Id inodeId, int blockSize, Block.Id firstBlock) {
-        return Block.Id.of(firstBlock.value() + (inodeId.value() - 1) * Inode.LENGTH / blockSize);
+    Block.Id calcBlock(Inode.Id inodeId, int blockSize, Block.Id firstBlock) {
+        return Block.Id.of(firstBlock.value() + (inodeId.value() - 1) * inodeSize() / blockSize);
     }
 
-    static int calcPosition(Inode.Id inodeId, int blockSize) {
-        return (inodeId.value() - 1) * Inode.LENGTH % blockSize;
+    int calcPosition(Inode.Id inodeId, int blockSize) {
+        return (inodeId.value() - 1) * inodeSize() % blockSize;
     }
 
+    @Override
     public int blockSize() {
-        return fileSystem.getSuperBlock().getBlockSize();
+        return fileSystem.blockSize();
     }
 
+    @Override
     public Block.Id firstBlock() {
-        return fileSystem.getSuperBlock().getInodeTableFirstBlock();
+        return fileSystem.superBlock().firstBlockOfInodeTables();
     }
 
+    @Override
     public int numberOfBlocks() {
-        return fileSystem.getSuperBlock().getInodeTablesNumberOfBlocks();
+        return fileSystem.superBlock().numberOfInodeTables();
     }
 
-    public Inode getRoot() {
+    int inodeSize() {
+        return fileSystem.inodeSize();
+    }
+
+    Inode root() {
         return root;
     }
+
 }

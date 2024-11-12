@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-public class Data {
+class Data {
 
     private final byte[] data;
     private final int length;

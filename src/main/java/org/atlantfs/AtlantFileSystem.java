@@ -42,7 +42,7 @@ public class AtlantFileSystem extends FileSystem {
     private final SuperBlock superBlock;
     private final DataBitmapRegion dataBitmapRegion = new DataBitmapRegion(this);
     private final InodeBitmapRegion inodeBitmapRegion = new InodeBitmapRegion(this);
-    private final InodeTable inodeTable;
+    private final InodeTableRegion inodeTableRegion;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private volatile boolean isOpen = true;
 
@@ -54,7 +54,7 @@ public class AtlantFileSystem extends FileSystem {
                 AtlantFileSystem.channel.set(channel);
                 var buffer = ByteBuffer.allocate(SuperBlock.LENGTH);
                 this.superBlock = SuperBlock.read(buffer);
-                this.inodeTable = InodeTable.read(this);
+                this.inodeTableRegion = InodeTableRegion.read(this);
             } finally {
                 AtlantFileSystem.channel.remove();
             }
@@ -63,9 +63,9 @@ public class AtlantFileSystem extends FileSystem {
             try (var channel = Files.newByteChannel(path, READ, WRITE, CREATE)) {
                 AtlantFileSystem.channel.set(channel);
                 superBlock.write(getBlockByteBuffer());
-                inodeBitmapRegion.writeEmpty();
-                dataBitmapRegion.writeEmpty();
-                this.inodeTable = new InodeTable(this);
+                dataBitmapRegion.init();
+                inodeBitmapRegion.init();
+                this.inodeTableRegion = new InodeTableRegion(this);
             } finally {
                 AtlantFileSystem.channel.remove();
             }
@@ -82,7 +82,7 @@ public class AtlantFileSystem extends FileSystem {
                 try {
                     dirEntry = inode.get(fileName);
                 } catch (NoSuchFileException e) {
-                    var newInode = inodeTable.createDirectory();
+                    var newInode = inodeTableRegion.createDirectory();
                     inode.addDirectory(newInode.getId(), fileName);
                     inode = newInode;
                     continue;
@@ -97,7 +97,7 @@ public class AtlantFileSystem extends FileSystem {
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
         var channel = Files.newByteChannel(path, READ);
         AtlantFileSystem.channel.set(channel);
-        var inode = locateDirectory(dir);
+        var inode = locate(dir);
         inode.readLock().lock();
         var iterator = inode.iterator();
         return new DirectoryStream<>() {
@@ -127,8 +127,8 @@ public class AtlantFileSystem extends FileSystem {
         };
     }
 
-    private Inode locateDirectory(AtlantPath absolutePath) throws NoSuchFileException {
-        var inode = inodeTable.getRoot();
+    private Inode locate(AtlantPath absolutePath) throws NoSuchFileException {
+        var inode = inodeTableRegion.root();
         for (Path path : absolutePath) {
             try {
                 var fileName = path.getFileName().toString();
@@ -346,19 +346,19 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     int blockSize() {
-        return superBlock.getBlockSize();
+        return superBlock.blockSize();
     }
 
     int inodeSize() {
-        return superBlock.getInodeSize();
+        return superBlock.inodeSize();
     }
 
     Inode root() {
-        return inodeTable.getRoot();
+        return inodeTableRegion.root();
     }
 
     Inode findInode(Inode.Id inodeId) {
-        return inodeTable.get(inodeId);
+        return inodeTableRegion.get(inodeId);
     }
 
     Block.Id reserveBlock() throws BitmapRegionOutOfMemoryException {
@@ -385,6 +385,7 @@ public class AtlantFileSystem extends FileSystem {
         try {
             channel.position((long) blockSize() * blockId.value());
             channel.read(buffer);
+            buffer.flip();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -397,7 +398,7 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position((long) inodeSize() * inodeId.value());
+            channel.position(superBlock.firstBlockOfInodeTables().value() + (long) inodeSize() * inodeId.value());
             channel.read(buffer);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -408,6 +409,7 @@ public class AtlantFileSystem extends FileSystem {
     void writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
         var buffer = getBlockByteBuffer();
         consumer.accept(buffer);
+        buffer.flip();
         var channel = AtlantFileSystem.channel.get();
         assert channel != null;
         assert channel.isOpen();
@@ -441,13 +443,13 @@ public class AtlantFileSystem extends FileSystem {
         lock.writeLock().unlock();
     }
 
-    SuperBlock getSuperBlock() {
+    SuperBlock superBlock() {
         return superBlock;
     }
 
-    public <A extends BasicFileAttributes> A readAttributes(AtlantPath path, LinkOption[] options) throws NoSuchFileException {
-        var parentInode = locateDirectory((AtlantPath) path.getParent());
-        return null;
+    public AtlantFileAttributes readAttributes(AtlantPath path, LinkOption[] options) throws NoSuchFileException {
+        var inode = locate((AtlantPath) path.getParent());
+        return AtlantFileAttributes.from(inode);
     }
 
 }

@@ -162,10 +162,6 @@ class DirEntry {
     }
 
     void write(ByteBuffer buffer) {
-        if (!dirty) {
-            log.finer(() -> "Dir entry is not dirty, skip writing");
-            return;
-        }
         var initial = buffer.position();
         log.fine(() -> "Writing Dir entry [position=" + initial + "]...");
         buffer.putInt(inode.value());
@@ -173,6 +169,7 @@ class DirEntry {
         buffer.put((byte) name.length());
         fileType.write(buffer);
         buffer.put(name.getBytes());
+        buffer.position(initial + length);
         log.finer(() -> "Successfully written Dir entry [entry=" + this + "]");
     }
 

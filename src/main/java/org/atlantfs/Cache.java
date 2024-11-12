@@ -5,11 +5,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-public class Cache<K, V> {
+class Cache<K, V> {
 
     private final Map<K, SoftReference<V>> cache = new ConcurrentHashMap<>();
 
-    public V computeIfAbsent(K key, Function<? super K, ? extends V> remappingFunction) {
+    V computeIfAbsent(K key, Function<? super K, ? extends V> remappingFunction) {
         Object[] hardRefs = new Object[1];
         cache.compute(key, (id, ref) -> {
             if (ref != null) {

@@ -21,17 +21,17 @@ class InodeBitmapRegion extends AbstractBitmapRegion<Inode.Id, Inode.Range> {
 
     @Override
     public Block.Id firstBlock() {
-        return fileSystem.getSuperBlock().getInodeBitmapFirstBlock();
+        return fileSystem.superBlock().firstBlockOfInodeBitmap();
     }
 
     @Override
     public int numberOfBlocks() {
-        return fileSystem.getSuperBlock().getInodeBitmapNumberOfBlocks();
+        return fileSystem.superBlock().numberOfInodeBitmaps();
     }
 
     @Override
     public int blockSize() {
-        return fileSystem.getSuperBlock().getBlockSize();
+        return fileSystem.superBlock().blockSize();
     }
 
 }

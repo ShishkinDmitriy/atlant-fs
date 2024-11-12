@@ -61,13 +61,16 @@ final class DirEntryList implements DirectoryOperations {
                 break;
             }
         }
+        assert !buffer.hasRemaining();
         var block = new DirEntryList(length, entries);
         block.checkInvariant();
         return block;
     }
 
     void write(ByteBuffer buffer) {
-        // TODO
+        assert buffer.remaining() == length;
+        entries.forEach(entry -> entry.write(buffer));
+        assert !buffer.hasRemaining();
     }
 
     public Iterator<DirEntry> iterator() {

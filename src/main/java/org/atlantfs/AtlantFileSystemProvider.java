@@ -18,8 +18,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -154,7 +152,8 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
         if (!(path instanceof AtlantPath atlantPath)) {
             throw new ProviderMismatchException();
         }
-        return atlantPath.getFileSystem().readAttributes(atlantPath, options);
+        //noinspection unchecked
+        return (A) atlantPath.getFileSystem().readAttributes(atlantPath, options);
     }
 
     @Override

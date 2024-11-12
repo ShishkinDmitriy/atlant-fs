@@ -21,4 +21,5 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     systemProperty("java.util.logging.config.file", project.layout.projectDirectory.file("logging.properties").asFile.absolutePath)
+    systemProperty("project.dir", project.layout.projectDirectory.asFile.absolutePath)
 }

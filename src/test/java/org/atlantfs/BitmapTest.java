@@ -184,7 +184,7 @@ class BitmapTest {
         return String.format("%-16s", HexFormat.of().formatHex(bitset.toByteArray())).replace(' ', '0');
     }
 
-    public static class RangesListConverter implements ArgumentConverter {
+    private static class RangesListConverter implements ArgumentConverter {
 
         private final RangeConverter rangeConverter = new RangeConverter();
 
@@ -201,7 +201,7 @@ class BitmapTest {
 
     }
 
-    public static class RangeConverter implements ArgumentConverter {
+    private static class RangeConverter implements ArgumentConverter {
 
         @Override
         public final Object convert(Object source, ParameterContext context) throws ArgumentConversionException {

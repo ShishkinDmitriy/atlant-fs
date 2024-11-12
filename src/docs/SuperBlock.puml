@@ -1,0 +1,22 @@
+@startuml
+
+class SuperBlock{
+    -blockSize: int
+    -inodeSize: int
+    -numberOfBlockBitmaps: int
+    -numberOfInodeBitmaps: int
+    -numberOfInodeTables: int
+    #{static}read(): int
+    #{static}withDefaults(): int
+    #write(): int
+    #blockSize(): int
+    #inodeSize(): int
+    #numberOfBlockBitmaps(): int
+    #numberOfInodeBitmaps(): int
+    #numberOfInodeTables(): int
+    #firstBlockOfBlockBitmap(): int
+    #firstBlockOfData(): int
+    #firstBlockOfInodeBitmap(): int
+    #firstBlockOfInodeTables(): int
+}
+@enduml

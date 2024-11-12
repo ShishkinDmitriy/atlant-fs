@@ -1,0 +1,40 @@
+@startuml
+
+abstract class AbstractBitmapRegion<K, V> {
+    -cache: Cache<Block.Id, Bitmap>
+    -current: AtomicInteger
+    #init(): void
+    #write(bitmapNumber: int, bitmap: Bitmap): void
+    #reserve(): K
+    #reserve(size: int): List<R>
+    #reserveMultiple(bitmapNumber: int, size: int): Optional<K>
+    #reserveSingle(bitmapNumber: int): Optional<K>
+    #free(id: K): void
+    #free(ranges: List<R>): void
+    #{abstract}applyOffset(bitmapNumber: int, range: Bitmap.Range): R
+    #{abstract}applyOffset(bitmapNumber: int, position: int): K
+}
+class InodeBitmapRegion<Inode.Id, Inode.Range> {
+    #applyOffset(bitmapNumber: int, range: Bitmap.Range): Inode.Range
+    #applyOffset(bitmapNumber: int, position: int): Inode.Id
+}
+class DataBitmapRegion<Block.Id, Block.Range> {
+    #applyOffset(bitmapNumber: int, range: Bitmap.Range): Block.Range
+    #applyOffset(bitmapNumber: int, position: int): Block.Id
+}
+class Bitmap {
+    #{static}read(buffer: ByteBuffer): void
+    #write(buffer: ByteBuffer): void
+    #reserve(): int
+    #reserve(size: int): List<Bitmap.Range>
+    #free(position: int): boolean
+    #free(range: Bitmap.Range): void
+    #lock(): void
+    #unlock(): void
+}
+
+AbstractBitmapRegion <|-- InodeBitmapRegion
+AbstractBitmapRegion <|-- DataBitmapRegion
+AbstractBitmapRegion -r-> "*" Bitmap
+
+@enduml

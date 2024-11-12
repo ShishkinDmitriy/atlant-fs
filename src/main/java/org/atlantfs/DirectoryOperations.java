@@ -5,7 +5,7 @@ import java.util.Iterator;
 
 interface DirectoryOperations {
 
-    public Iterator<DirEntry> iterator();
+    Iterator<DirEntry> iterator();
 
     default DirEntry addDirectory(Inode.Id inode, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
         return add(inode, FileType.DIRECTORY, name);

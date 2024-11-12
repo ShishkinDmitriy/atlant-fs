@@ -3,29 +3,32 @@ package org.atlantfs;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
-class BlockList implements DirectoryOperations {
+class BlockMapping implements DirectoryOperations {
 
     private final List<Block.Id> addresses = new ArrayList<>();
     private final Inode inode;
 
-    BlockList(Inode inode) {
+    BlockMapping(Inode inode) {
         this.inode = inode;
     }
 
-    static BlockList read(Inode inode, ByteBuffer buffer) {
+    static BlockMapping read(Inode inode, ByteBuffer buffer) {
         var blocks = new ArrayList<Block.Id>();
         for (int i = 0; i < Math.min(inode.getBlocksCount(), getDirectBlocks() + getDirectBlocks()); i++) {
             Block.Id read = Block.Id.read(buffer);
             blocks.add(read);
         }
-        var blockList = new BlockList(inode);
+        var blockList = new BlockMapping(inode);
         blockList.getAddresses().addAll(blocks);
         return blockList;
     }
 
+    @Override
     public Iterator<DirEntry> iterator() {
         return new Iterator<>() {
 
@@ -71,6 +74,7 @@ class BlockList implements DirectoryOperations {
             throw new DirectoryOutOfMemoryException("Not enough memory to create new Directory");
         }
         var reserved = inode.reserveBlock();
+        addresses.add(reserved); // TODO: Handle indirect
         var dirEntryList = new DirEntryList(inode.blockSize());
         var add = dirEntryList.add(inodeId, fileType, name);
         inode.writeBlock(reserved, dirEntryList::write);
@@ -125,15 +129,55 @@ class BlockList implements DirectoryOperations {
         if (blockNumber < getDirectBlocks()) {
             return addresses.get(blockNumber);
         }
-        if (blockNumber < getDirectBlocks() + idsPerBlock()) {
-            assert addresses.size() == getDirectBlocks() + getIndirectBlocks();
-            var indirectBlockId = addresses.getLast();
-            var offset = (blockNumber - getDirectBlocks()) % idsPerBlock();
-            var buffer = inode.readBlock(indirectBlockId);
-            buffer.position(offset);
-            return Block.Id.read(buffer);
+        blockNumber -= getDirectBlocks();
+        var level = indirectLevel(blockNumber);
+        assert addresses.size() >= getDirectBlocks() + level;
+        var blockId = addresses.get(getDirectBlocks() + level - 1);
+        for (var offset : indirectOffsets(level, blockNumber)) {
+            blockId = readBlockId(blockId, offset);
         }
-        throw new IllegalArgumentException("Too much");
+        return blockId;
+    }
+
+    void allocate() {
+        var blockNumber = inode.getBlocksCount() + 1;
+        if (blockNumber >= getDirectBlocks()) {
+            blockNumber -= getDirectBlocks();
+            var level = indirectLevel(blockNumber);
+            var offsets = indirectOffsets(level, blockNumber);
+            for (var i = 0; i < offsets.size(); i++) {
+                var last = offsets.pollLast();
+//                if () {
+//
+//                }
+            }
+        }
+    }
+
+    Block.Id readBlockId(Block.Id blockId, int offset) {
+        var buffer = inode.readBlock(blockId);
+        buffer.position(offset);
+        return Block.Id.read(buffer);
+    }
+
+    int indirectLevel(long blockNumber) {
+        var idsPerBlock = idsPerBlock();
+        int i = 0;
+        while (blockNumber >= 0) {
+            i++;
+            blockNumber -= (int) Math.pow(idsPerBlock, i);
+        }
+        return i;
+    }
+
+    Deque<Integer> indirectOffsets(int level, int blockNumber) {
+        var result = new LinkedList<Integer>();
+        var current = blockNumber;
+        for (int i = 0; i < level; i++) {
+            result.addFirst(current % idsPerBlock());
+            current /= idsPerBlock();
+        }
+        return result;
     }
 
     private DirEntryList readDirEntryList(Block.Id blockId) {

@@ -39,7 +39,7 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
         this.fileSystem = fileSystem;
     }
 
-    void writeEmpty() {
+    void init() {
         for (int i = 0; i < numberOfBlocks(); i++) {
             fileSystem.writeBlock(firstBlock().plus(i), buffer -> {
                 while (buffer.hasRemaining()) {

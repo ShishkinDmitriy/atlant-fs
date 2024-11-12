@@ -1,4 +1,4 @@
-package org.atlantfs;
+package org.atlantfs.func;
 
 import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.Test;
@@ -12,12 +12,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(LoggingExtension.class)
-class FunctionalTest {
+class SoapOperaTest {
 
     @Test
     void newFileSystem_should_createNewInstance() throws IOException {
         // Given
-        var uri = URI.create("atlant:test.fs!/");
+        var uri = URI.create("atlant:build/FunctionalTest.atlant!/");
         // When
         var fileSystem = FileSystems.newFileSystem(uri, Map.of());
         // Then

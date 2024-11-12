@@ -42,10 +42,10 @@ final class SuperBlock {
                 .orElseGet(SuperBlock::getUnderlyingBlockSize);
         var superBlock = new SuperBlock();
         superBlock.setBlockSize(blockSize);
-        superBlock.setInodeSize(128);
+        superBlock.setInodeSize(64);
         superBlock.setNumberOfBlockBitmaps(1);
         superBlock.setNumberOfInodeBitmaps(4);
-        superBlock.setNumberOfInodeTables(4);
+        superBlock.setNumberOfInodeTables(64);
         return superBlock;
     }
 
@@ -60,28 +60,40 @@ final class SuperBlock {
         assert buffer.position() == LENGTH;
     }
 
-    Block.Id getBlockBitmapFirstBlock() {
-        return Block.Id.of(1);
+    int blockSize() {
+        return blockSize;
     }
 
-    int getBlockBitmapNumberOfBlocks() {
+    int inodeSize() {
+        return inodeSize;
+    }
+
+    int numberOfBlockBitmaps() {
         return numberOfBlockBitmaps;
     }
 
-    Block.Id getInodeBitmapFirstBlock() {
-        return Block.Id.of(getBlockBitmapFirstBlock().value() + getBlockBitmapNumberOfBlocks());
-    }
-
-    int getInodeBitmapNumberOfBlocks() {
+    int numberOfInodeBitmaps() {
         return numberOfInodeBitmaps;
     }
 
-    Block.Id getInodeTableFirstBlock() {
-        return Block.Id.of(getInodeBitmapFirstBlock().value() + getInodeBitmapNumberOfBlocks());
+    int numberOfInodeTables() {
+        return numberOfInodeTables;
     }
 
-    int getInodeTablesNumberOfBlocks() {
-        return numberOfInodeTables;
+    Block.Id firstBlockOfBlockBitmap() {
+        return Block.Id.of(1);
+    }
+
+    Block.Id firstBlockOfInodeBitmap() {
+        return firstBlockOfBlockBitmap().plus(numberOfBlockBitmaps);
+    }
+
+    Block.Id firstBlockOfInodeTables() {
+        return firstBlockOfInodeBitmap().plus(numberOfInodeBitmaps);
+    }
+
+    Block.Id firstBlockOfData() {
+        return firstBlockOfInodeTables().plus(numberOfInodeTables);
     }
 
     private static int getUnderlyingBlockSize() {
@@ -96,44 +108,24 @@ final class SuperBlock {
         }
     }
 
-    //region getters/setters
-    int getBlockSize() {
-        return blockSize;
-    }
-
-    public void setBlockSize(int blockSize) {
+    //region private setters
+    private void setBlockSize(int blockSize) {
         this.blockSize = blockSize;
     }
 
-    public int getInodeSize() {
-        return inodeSize;
-    }
-
-    public void setInodeSize(int inodeSize) {
+    private void setInodeSize(int inodeSize) {
         this.inodeSize = inodeSize;
     }
 
-    public int getNumberOfBlockBitmaps() {
-        return numberOfBlockBitmaps;
-    }
-
-    public void setNumberOfBlockBitmaps(int numberOfBlockBitmaps) {
+    private void setNumberOfBlockBitmaps(int numberOfBlockBitmaps) {
         this.numberOfBlockBitmaps = numberOfBlockBitmaps;
     }
 
-    public int getNumberOfInodeBitmaps() {
-        return numberOfInodeBitmaps;
-    }
-
-    public void setNumberOfInodeBitmaps(int numberOfInodeBitmaps) {
+    private void setNumberOfInodeBitmaps(int numberOfInodeBitmaps) {
         this.numberOfInodeBitmaps = numberOfInodeBitmaps;
     }
 
-    public int getNumberOfInodeTables() {
-        return numberOfInodeTables;
-    }
-
-    public void setNumberOfInodeTables(int numberOfInodeTables) {
+    private void setNumberOfInodeTables(int numberOfInodeTables) {
         this.numberOfInodeTables = numberOfInodeTables;
     }
     //endregion

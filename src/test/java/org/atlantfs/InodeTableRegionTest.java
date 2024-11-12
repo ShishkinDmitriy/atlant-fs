@@ -16,7 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith({MockitoExtension.class, LoggingExtension.class})
-class InodeTableTest {
+class InodeTableRegionTest {
 
     @Mock
     AtlantFileSystem fileSystem;
@@ -25,17 +25,18 @@ class InodeTableTest {
 
     @BeforeEach
     void beforeEach() {
-        lenient().when(fileSystem.getSuperBlock()).thenReturn(superBlock);
-        lenient().when(superBlock.getBlockSize()).thenReturn(4096);
-        lenient().when(superBlock.getInodeTableFirstBlock()).thenReturn(Block.Id.of(9));
-        lenient().when(superBlock.getInodeTablesNumberOfBlocks()).thenReturn(120);
+        lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
+        lenient().when(superBlock.blockSize()).thenReturn(4096);
+        lenient().when(superBlock.inodeSize()).thenReturn(128);
+        lenient().when(superBlock.firstBlockOfInodeTables()).thenReturn(Block.Id.of(9));
+        lenient().when(superBlock.numberOfInodeTables()).thenReturn(120);
     }
 
     //region InodeTable::get
     @Test
     void get_should_findInodeInChannel() {
         // Given
-        var inodeTable = new InodeTable(fileSystem);
+        var inodeTable = new InodeTableRegion(fileSystem);
         // When
         var result = inodeTable.get(Inode.Id.of(53));
         // Then
@@ -45,7 +46,7 @@ class InodeTableTest {
     @Test
     void get_should_useCache_when_searchSameInodeId() {
         // Given
-        var inodeTable = new InodeTable(fileSystem);
+        var inodeTable = new InodeTableRegion(fileSystem);
         var inodeId = Inode.Id.of(53);
         // When
         inodeTable.get(inodeId);
@@ -72,8 +73,10 @@ class InodeTableTest {
     })
     @ParameterizedTest
     void calcBlock_should_calculateBlockId(int inodeId, int blockSize, int firstBlock, int expectedResult) {
+        // Given
+        var inodeTable = new InodeTableRegion(fileSystem);
         // When
-        var result = InodeTable.calcBlock(Inode.Id.of(inodeId), blockSize, Block.Id.of(firstBlock));
+        var result = inodeTable.calcBlock(Inode.Id.of(inodeId), blockSize, Block.Id.of(firstBlock));
         // Then
         assertThat(result).isEqualTo(Block.Id.of(expectedResult));
     }
@@ -93,8 +96,10 @@ class InodeTableTest {
     })
     @ParameterizedTest
     void calcPosition_should_calculatePositionInsideBlock(int inodeId, int blockSize, int expectedResult) {
+        // Given
+        var inodeTable = new InodeTableRegion(fileSystem);
         // When
-        var result = InodeTable.calcPosition(Inode.Id.of(inodeId), blockSize);
+        var result = inodeTable.calcPosition(Inode.Id.of(inodeId), blockSize);
         // Then
         assertThat(result).isEqualTo(expectedResult);
     }

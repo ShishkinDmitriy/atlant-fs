@@ -47,12 +47,12 @@ class AbstractBitmapRegionTest {
 
     @BeforeEach
     void beforeEach() {
-        lenient().when(fileSystem.getSuperBlock()).thenReturn(superBlock);
+        lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
         lenient().when(fileSystem.getBlockByteBuffer()).thenCallRealMethod();
         lenient().when(fileSystem.blockSize()).thenReturn(BLOCK_SIZE);
-        lenient().when(superBlock.getBlockSize()).thenReturn(BLOCK_SIZE);
-        lenient().when(superBlock.getInodeBitmapFirstBlock()).thenReturn(BITMAP_REGION_FIRST_BLOCK);
-        lenient().when(superBlock.getInodeBitmapNumberOfBlocks()).thenReturn(BITMAP_REGION_NUMBER_OF_BLOCKS);
+        lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
+        lenient().when(superBlock.firstBlockOfInodeBitmap()).thenReturn(BITMAP_REGION_FIRST_BLOCK);
+        lenient().when(superBlock.numberOfInodeBitmaps()).thenReturn(BITMAP_REGION_NUMBER_OF_BLOCKS);
         bitmapRegion = new AbstractBitmapRegion<>(fileSystem) {
 
             @Override

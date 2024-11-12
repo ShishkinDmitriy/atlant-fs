@@ -8,9 +8,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -19,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(LoggingExtension.class)
 class CreateDirectoryTest {
 
-    public static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest.atlant";
+    public static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest2.atlant";
     public static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
     public static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
     public static final int DIRS_COUNT = 3;
@@ -38,7 +41,6 @@ class CreateDirectoryTest {
     void createDirectory_depth() throws IOException {
         // Given
         try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
-            assertThat(fileSystem).isNotNull();
             var root = fileSystem.getPath("/");
             var path = root;
             for (int i = 0; i < DIRS_COUNT; i++) {
@@ -75,7 +77,6 @@ class CreateDirectoryTest {
     void createDirectory_breadth() throws IOException {
         // Given
         try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
-            assertThat(fileSystem).isNotNull();
             var paths = new ArrayList<Path>();
             for (int i = 0; i < DIRS_COUNT; i++) {
                 paths.add(fileSystem.getPath("/level-" + i));
@@ -93,6 +94,42 @@ class CreateDirectoryTest {
             }
             assertThat(agg).hasSize(DIRS_COUNT).containsExactlyInAnyOrderElementsOf(paths);
         }
+    }
+
+    @Test
+    void soapOpera() throws IOException {
+        // Given
+        var collection = new ArrayList<String>();
+        var projectDir = Paths.get(System.getProperty("project.dir"));
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
+            // When
+            Files.walkFileTree(projectDir, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    var normalized = normalize(dir);
+                    var path = fileSystem.getPath(normalized);
+                    Files.createDirectories(path);
+                    collection.add(normalized);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            // Then
+            var actual = new ArrayList<String>();
+            Files.walkFileTree(fileSystem.getPath(normalize(projectDir)), new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    actual.add(normalize(dir));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            assertThat(actual).containsExactlyInAnyOrderElementsOf(collection);
+        }
+    }
+
+    private String normalize(Path path) {
+        return path.toString()
+                .replaceFirst("C:\\\\", "/")
+                .replace('\\', '/');
     }
 
 }

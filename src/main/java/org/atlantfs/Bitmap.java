@@ -25,18 +25,14 @@ class Bitmap {
     }
 
     static Bitmap read(ByteBuffer buffer) {
-        var remaining = buffer.remaining();
         var bitSet = BitSet.valueOf(buffer);
-        return new Bitmap(bitSet, remaining);
+        return new Bitmap(bitSet, buffer.capacity());
     }
 
     void write(ByteBuffer buffer) {
         var remaining = buffer.remaining();
         if (remaining < length) {
             throw new IllegalArgumentException("Buffer size [" + remaining + "] mismatch with bitmap size [" + length + "]");
-        }
-        if (!dirty) {
-            return;
         }
         dirty = false;
         buffer.put(bitset.toByteArray());
@@ -114,11 +110,11 @@ class Bitmap {
         this.lock.unlock();
     }
 
-    void checkInvariant() {
+    private void checkInvariant() {
         assert bitset.length() <= length * 8 : "Bitmap length [bits=" + bitset.length() + "] should be not more then total [bits=" + length * 8 + "]";
     }
 
-    static int byteToBits(int b) {
+    private static int byteToBits(int b) {
         return b * 8;
     }
 

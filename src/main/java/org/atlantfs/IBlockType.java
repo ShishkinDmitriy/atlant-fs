@@ -56,13 +56,13 @@ enum IBlockType {
         return fileType;
     }
 
-    boolean isFileType() {
+    boolean isRegularFile() {
         return this == INLINE_DATA
                 || this == DIRECT_BLOCKS
                 || this == EXTENT_TREE;
     }
 
-    boolean isDirectoryType() {
+    boolean isDirectory() {
         return this == INLINE_DIR_LIST
                 || this == DIR_TREE;
     }
