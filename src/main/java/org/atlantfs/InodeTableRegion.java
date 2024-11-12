@@ -1,5 +1,7 @@
 package org.atlantfs;
 
+import java.util.function.BiFunction;
+
 class InodeTableRegion implements AbstractRegion {
 
     private final AtlantFileSystem fileSystem;
@@ -37,18 +39,19 @@ class InodeTableRegion implements AbstractRegion {
         });
     }
 
-    public Inode createFile() throws BitmapRegionOutOfMemoryException {
-        var reserved = fileSystem.reserveInode();
-        checkInodeIdLimit(reserved);
-        var inode = Inode.createRegularFile(fileSystem, reserved);
-        cache.put(reserved, inode);
-        return inode;
+    Inode createFile() throws BitmapRegionOutOfMemoryException {
+        return createInode(Inode::createRegularFile);
     }
 
-    public Inode createDirectory() throws BitmapRegionOutOfMemoryException {
+    Inode createDirectory() throws BitmapRegionOutOfMemoryException {
+        return createInode(Inode::createDirectory);
+    }
+
+    private Inode createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
-        var inode = Inode.createDirectory(fileSystem, reserved);
+        var inode = function.apply(fileSystem, reserved);
+        fileSystem.writeInode(reserved, inode::write);
         cache.put(reserved, inode);
         return inode;
     }

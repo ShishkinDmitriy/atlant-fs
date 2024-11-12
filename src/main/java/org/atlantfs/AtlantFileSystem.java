@@ -51,6 +51,7 @@ public class AtlantFileSystem extends FileSystem {
         this.provider = provider;
         this.path = path;
         if (Files.exists(path)) {
+            log.finer(() -> "Opening Atlant file system [path=" + path.toAbsolutePath() + "]...");
             try (var channel = Files.newByteChannel(path, READ)) {
                 AtlantFileSystem.channel.set(channel);
                 var buffer = ByteBuffer.allocate(SuperBlock.LENGTH);
@@ -59,13 +60,15 @@ public class AtlantFileSystem extends FileSystem {
                 buffer.flip();
                 this.superBlock = SuperBlock.read(buffer);
                 this.inodeTableRegion = InodeTableRegion.read(this);
+                log.fine(() -> "Successfully opened new Atlant file system [path=" + path.toAbsolutePath() + "]");
             } catch (IOException e) {
-                log.log(Level.SEVERE, "Failed to read Atlant file", e);
+                log.log(Level.SEVERE, "Failed to open Atlant file system [path=" + path.toAbsolutePath() + "]", e);
                 throw e;
             } finally {
                 AtlantFileSystem.channel.remove();
             }
         } else {
+            log.finer(() -> "Creating new Atlant file system [path=" + path.toAbsolutePath() + "]...");
             this.superBlock = SuperBlock.withDefaults(env);
             try (var channel = Files.newByteChannel(path, READ, WRITE, CREATE)) {
                 AtlantFileSystem.channel.set(channel);
@@ -73,8 +76,9 @@ public class AtlantFileSystem extends FileSystem {
                 dataBitmapRegion.init();
                 inodeBitmapRegion.init();
                 this.inodeTableRegion = new InodeTableRegion(this);
+                log.fine(() -> "Successfully created new Atlant file system [path=" + path.toAbsolutePath() + "]");
             } catch (IOException e) {
-                log.log(Level.SEVERE, "Failed to create Atlant file", e);
+                log.log(Level.SEVERE, "Failed to create Atlant file system [path=" + path.toAbsolutePath() + "]", e);
                 throw e;
             } finally {
                 AtlantFileSystem.channel.remove();
@@ -217,8 +221,10 @@ public class AtlantFileSystem extends FileSystem {
         if (!isOpen) {
             return;
         }
+        log.finer(() -> "Closing Atlant file system [path=" + path.toAbsolutePath() + "]...");
         isOpen = false;
         provider.removeFileSystem(path);
+        log.fine(() -> "Successfully closed Atlant file system [path=" + path.toAbsolutePath() + "]");
     }
 
     @Override
@@ -343,7 +349,7 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position((long) blockSize() * blockId.value());
+            channel.position(blockPosition(blockId));
             channel.read(buffer);
             buffer.flip();
         } catch (IOException e) {
@@ -358,7 +364,7 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position(superBlock.firstBlockOfInodeTables().value() + (long) inodeSize() * inodeId.value());
+            channel.position(inodePosition(inodeId));
             channel.read(buffer);
             buffer.flip();
         } catch (IOException e) {
@@ -375,7 +381,7 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position((long) blockSize() * blockId.value());
+            channel.position(blockPosition(blockId));
             channel.write(buffer);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -390,11 +396,20 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position((long) inodeSize() * inodeId.value());
+            channel.position(inodePosition(inodeId));
             channel.write(buffer);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private long blockPosition(Block.Id blockId) {
+        return (long) blockId.value() * blockSize();
+    }
+
+    private long inodePosition(Inode.Id inodeId) {
+        return (long) superBlock.firstBlockOfInodeTables().value() * blockSize()
+                + ((long) inodeSize() * inodeId.minus(1).value());
     }
 
     SuperBlock superBlock() {

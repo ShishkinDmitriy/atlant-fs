@@ -8,7 +8,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-class BlockMapping implements DirectoryOperations {
+class BlockMapping implements DirectoryOperations, IBlock {
 
     private final List<Block.Id> addresses = new ArrayList<>();
     private final Inode inode;
@@ -26,6 +26,11 @@ class BlockMapping implements DirectoryOperations {
         var blockList = new BlockMapping(inode);
         blockList.getAddresses().addAll(blocks);
         return blockList;
+    }
+
+    @Override
+    public void write(ByteBuffer buffer) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -12,7 +12,7 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations {
+final class DirEntryList implements DirectoryOperations, IBlock {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
@@ -67,12 +67,14 @@ final class DirEntryList implements DirectoryOperations {
         return block;
     }
 
-    void write(ByteBuffer buffer) {
+    @Override
+    public void write(ByteBuffer buffer) {
         assert buffer.remaining() == length;
         entries.forEach(entry -> entry.write(buffer));
         assert !buffer.hasRemaining();
     }
 
+    @Override
     public Iterator<DirEntry> iterator() {
         return entries.iterator();
     }

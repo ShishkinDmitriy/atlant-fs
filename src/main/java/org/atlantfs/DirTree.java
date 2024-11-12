@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirTree implements DirectoryOperations, Block {
+class DirTree implements DirectoryOperations, Block, IBlock {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;
@@ -14,7 +14,12 @@ class DirTree implements DirectoryOperations, Block {
     }
 
     static DirTree read(AtlantFileSystem fileSystem, ByteBuffer buffer) {
-        return new DirTree(fileSystem);
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void write(ByteBuffer buffer) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -24,7 +29,7 @@ class DirTree implements DirectoryOperations, Block {
 
     @Override
     public DirEntry add(Inode.Id inode, FileType fileType, String name) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -42,12 +47,12 @@ class DirTree implements DirectoryOperations, Block {
 
     @Override
     public void rename(String name, String newName) throws NoSuchFileException {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void delete(String name) throws NoSuchFileException {
-
+        throw new UnsupportedOperationException();
     }
 
 }

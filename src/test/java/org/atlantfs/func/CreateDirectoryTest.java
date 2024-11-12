@@ -22,10 +22,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(LoggingExtension.class)
 class CreateDirectoryTest {
 
-    public static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest2.atlant";
-    public static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
-    public static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
-    public static final int DIRS_COUNT = 3;
+    private static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest2.atlant";
+    private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
+    private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
+    private static final int DIRS_COUNT = 3;
+    private static final Map<String, Object> DEFAULT_CONFIG = Map.of();
 
     @BeforeEach
     void beforeEach() throws IOException {
@@ -102,7 +103,7 @@ class CreateDirectoryTest {
     @Test
     void createDirectory_breadth() throws IOException {
         // Given
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
             var paths = new ArrayList<Path>();
             for (int i = 0; i < DIRS_COUNT; i++) {
                 paths.add(fileSystem.getPath("/level-" + i));
@@ -120,6 +121,21 @@ class CreateDirectoryTest {
             }
             assertThat(agg).hasSize(DIRS_COUNT).containsExactlyInAnyOrderElementsOf(paths);
         }
+        // When
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+            var paths = new ArrayList<Path>();
+            for (int i = 0; i < DIRS_COUNT; i++) {
+                paths.add(fileSystem.getPath("/level-" + i));
+            }
+            // Then
+            var agg = new ArrayList<Path>();
+            try (var children = Files.newDirectoryStream(fileSystem.getPath("/"))) {
+                for (Path child : children) {
+                    agg.add(child);
+                }
+            }
+            assertThat(agg).hasSize(DIRS_COUNT).containsExactlyInAnyOrderElementsOf(paths);
+        }
     }
 
     @Test
@@ -127,7 +143,7 @@ class CreateDirectoryTest {
         // Given
         var collection = new ArrayList<String>();
         var projectDir = Paths.get(System.getProperty("project.dir"));
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
             // When
             Files.walkFileTree(projectDir, new SimpleFileVisitor<>() {
                 @Override

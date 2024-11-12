@@ -28,13 +28,13 @@ class Inode implements FileOperations, DirectoryOperations {
 
     protected IBlockType iBlockType;
 
-    protected Object iBlock;
+    protected IBlock iBlock;
 
     protected boolean dirty;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public Inode(AtlantFileSystem fileSystem, Id id, long size, int blocksCount, IBlockType iBlockType, Object iBlock) {
+    public Inode(AtlantFileSystem fileSystem, Id id, long size, int blocksCount, IBlockType iBlockType, IBlock iBlock) {
         this.fileSystem = fileSystem;
         this.id = id;
         this.blocksCount = blocksCount;
@@ -53,12 +53,28 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     static Inode read(AtlantFileSystem fileSystem, ByteBuffer buffer, Inode.Id id) {
+        assert buffer.remaining() == fileSystem.inodeSize() : "Read expects [inodeSize=" + fileSystem.inodeSize() + "] bytes, but actual [remaining=" + buffer.remaining() + "]";
         var size = buffer.getLong();
-        var blockCount = buffer.getInt();
+        var blocksCount = buffer.getInt();
         var iBlockType = IBlockType.read(buffer);
-        var iBlockBuffer = buffer.slice();
-        var iBlock = iBlockType.create(fileSystem, iBlockBuffer);
-        return new Inode(fileSystem, id, size, blockCount, iBlockType, iBlock);
+        buffer.get(); // padding
+        buffer.get();
+        buffer.get();
+        var iBlock = iBlockType.create(fileSystem, buffer);
+        assert !buffer.hasRemaining() : "Read should consume all bytes, but actual [remaining=" + buffer.remaining() + "]";
+        return new Inode(fileSystem, id, size, blocksCount, iBlockType, iBlock);
+    }
+
+    void write(ByteBuffer buffer) {
+        assert buffer.remaining() == fileSystem.inodeSize();
+        buffer.putLong(size);
+        buffer.putInt(blocksCount);
+        iBlockType.write(buffer);
+        buffer.put((byte) 0); // padding
+        buffer.put((byte) 0);
+        buffer.put((byte) 0);
+        iBlock.write(buffer);
+        assert !buffer.hasRemaining();
     }
 
     @Override
@@ -75,7 +91,9 @@ class Inode implements FileOperations, DirectoryOperations {
     public DirEntry add(Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
         try {
             beginWrite();
-            return directoryOperations().add(inode, fileType, name);
+            var result = directoryOperations().add(inode, fileType, name);
+            fileSystem.writeInode(id, this::write);
+            return result;
         } catch (DirEntryListOfMemoryException e) {
             return upgradeAndAdd(directoryOperations -> {
                 try {
@@ -104,6 +122,7 @@ class Inode implements FileOperations, DirectoryOperations {
         try {
             beginWrite();
             directoryOperations().rename(name, newName);
+            fileSystem.writeInode(id, this::write); // Can grow, TODO: add isDirty check
         } catch (DirEntryListOfMemoryException e) {
             upgradeAndAdd(directoryOperations -> {
                 try {
@@ -123,6 +142,7 @@ class Inode implements FileOperations, DirectoryOperations {
         try {
             beginWrite();
             directoryOperations().delete(name);
+            fileSystem.writeInode(id, this::write);
         } finally {
             endWrite();
         }
@@ -206,14 +226,6 @@ class Inode implements FileOperations, DirectoryOperations {
         return fileSystem.readBlock(blockId);
     }
 
-    boolean isRegularFile() {
-        return iBlockType.isRegularFile();
-    }
-
-    boolean isDirectory() {
-        return iBlockType.isDirectory();
-    }
-
     private void checkInvariant() {
         assert size <= (long) blocksCount * blockSize();
         assert iBlockType != null : "IBlock type should be specified";
@@ -251,10 +263,6 @@ class Inode implements FileOperations, DirectoryOperations {
         return blocksCount;
     }
 
-    int getLength() {
-        return fileSystem.superBlock().inodeSize();
-    }
-
     public ReentrantReadWriteLock.ReadLock readLock() {
         return lock.readLock();
     }
@@ -287,6 +295,14 @@ class Inode implements FileOperations, DirectoryOperations {
 
         static Id of(int value) {
             return new Id(value);
+        }
+
+        Id minus(Id val) {
+            return new Id(value - val.value);
+        }
+
+        Id minus(int val) {
+            return new Id(value - val);
         }
 
         @Override

@@ -5,28 +5,26 @@ import java.util.function.BiFunction;
 
 enum IBlockType {
 
-    INLINE_DATA(0, FileType.REGULAR_FILE, Data.class, (_, buffer) -> Data.read(buffer)),
+    INLINE_DATA(0, FileType.REGULAR_FILE, (_, buffer) -> Data.read(buffer)),
 
-    DIRECT_BLOCKS(1, FileType.REGULAR_FILE, null, null), // Unsupported yet
+    DIRECT_BLOCKS(1, FileType.REGULAR_FILE, null), // Unsupported yet
 
-    EXTENT_TREE(2, FileType.REGULAR_FILE, null, null), // Unsupported yet
+    EXTENT_TREE(2, FileType.REGULAR_FILE, null), // Unsupported yet
 
-    INLINE_DIR_LIST(3, FileType.DIRECTORY, DirEntryList.class, (_, buffer) -> DirEntryList.read(buffer)),
+    INLINE_DIR_LIST(3, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
 
-    DIR_LIST(4, FileType.DIRECTORY, DirEntryList.class, (_, buffer) -> DirEntryList.read(buffer)),
+    DIR_LIST(4, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
 
-    DIR_TREE(5, FileType.DIRECTORY, DirTree.class, DirTree::read); // Unsupported yet
+    DIR_TREE(5, FileType.DIRECTORY, DirTree::read); // Unsupported yet
 
     static final int LENGTH = 1;
 
     final byte value;
-    final Class<?> type;
     final FileType fileType;
-    BiFunction<AtlantFileSystem, ByteBuffer, ?> reader;
+    BiFunction<AtlantFileSystem, ByteBuffer, IBlock> reader;
 
-    <T> IBlockType(int value, FileType fileType, Class<T> type, BiFunction<AtlantFileSystem, ByteBuffer, T> reader) {
+    <T> IBlockType(int value, FileType fileType, BiFunction<AtlantFileSystem, ByteBuffer, IBlock> reader) {
         this.value = (byte) value;
-        this.type = type;
         this.fileType = fileType;
         this.reader = reader;
     }
@@ -44,7 +42,7 @@ enum IBlockType {
         };
     }
 
-    Object create(AtlantFileSystem fileSystem, ByteBuffer buffer) {
+    IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer) {
         return reader.apply(fileSystem, buffer);
     }
 

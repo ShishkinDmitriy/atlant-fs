@@ -20,9 +20,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ExtendWith(LoggingExtension.class)
 class CreateFileSystemTest {
 
-    public static final String ATLANT_FILE_NAME = "build/CreateFileSystemTest.atlant";
-    public static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
-    public static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
+    private static final String ATLANT_FILE_NAME = "build/CreateFileSystemTest.atlant";
+    private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
+    private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
 
     @BeforeEach
     void beforeEach() throws IOException {
