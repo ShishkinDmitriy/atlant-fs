@@ -13,7 +13,14 @@ class Data {
     }
 
     static Data read(ByteBuffer buffer) {
-        return new Data(buffer.array(), buffer.remaining());
+        byte[] array = new byte[buffer.remaining()];
+        var i = 0;
+        while(buffer.hasRemaining()) {
+            array[i++] = buffer.get();
+        }
+        assert !buffer.hasRemaining();
+        var data1 = new Data(array, array.length);
+        return data1;
     }
 
 }

@@ -1,9 +1,11 @@
 package org.atlantfs;
 
+import org.atlantfs.util.LoggingExtension;
 import org.atlantfs.util.RandomUtil;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.converter.ArgumentConversionException;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.atlantfs.util.ByteBufferUtil.byteBuffer;
 
+@ExtendWith(LoggingExtension.class)
 class BitmapTest {
 
     private static final int BLOCK_SIZE = 8;

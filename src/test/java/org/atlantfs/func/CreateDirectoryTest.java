@@ -67,6 +67,32 @@ class CreateDirectoryTest {
                 assertThat(iterator.hasNext()).isFalse();
             }
         }
+        // When
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) { // Reopen
+            var root = fileSystem.getPath("/");
+            var path = root;
+            for (int i = 0; i < DIRS_COUNT; i++) {
+                path = path.resolve("level-" + i);
+            }
+            // Then
+            var current = path;
+            while (!current.equals(root)) {
+                var parent = current.getParent();
+                try (var children = Files.newDirectoryStream(parent)) {
+                    var iterator = children.iterator();
+                    assertThat(iterator.hasNext()).isTrue();
+                    assertThat(iterator.next()).isEqualTo(current);
+                    assertThat(iterator.hasNext()).isFalse();
+                }
+                current = parent;
+            }
+            try (var children = Files.newDirectoryStream(root)) {
+                var iterator = children.iterator();
+                assertThat(iterator.hasNext()).isTrue();
+                assertThat(iterator.next()).isEqualTo(fileSystem.getPath("/level-0"));
+                assertThat(iterator.hasNext()).isFalse();
+            }
+        }
     }
 
 

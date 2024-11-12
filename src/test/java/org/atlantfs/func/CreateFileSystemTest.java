@@ -1,7 +1,9 @@
 package org.atlantfs.func;
 
+import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.net.URI;
@@ -15,6 +17,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@ExtendWith(LoggingExtension.class)
 class CreateFileSystemTest {
 
     public static final String ATLANT_FILE_NAME = "build/CreateFileSystemTest.atlant";

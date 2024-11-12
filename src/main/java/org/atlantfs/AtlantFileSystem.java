@@ -22,15 +22,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 public class AtlantFileSystem extends FileSystem {
+
+    private static final Logger log = Logger.getLogger(AtlantFileSystem.class.getName());
 
     public static final String BLOCK_SIZE = "block-size";
     private static final ThreadLocal<ByteBuffer> blockByteBuffer = new ThreadLocal<>();
@@ -43,7 +45,6 @@ public class AtlantFileSystem extends FileSystem {
     private final DataBitmapRegion dataBitmapRegion = new DataBitmapRegion(this);
     private final InodeBitmapRegion inodeBitmapRegion = new InodeBitmapRegion(this);
     private final InodeTableRegion inodeTableRegion;
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private volatile boolean isOpen = true;
 
     public AtlantFileSystem(AtlantFileSystemProvider provider, Path path, Map<String, ?> env) throws IOException {
@@ -53,8 +54,14 @@ public class AtlantFileSystem extends FileSystem {
             try (var channel = Files.newByteChannel(path, READ)) {
                 AtlantFileSystem.channel.set(channel);
                 var buffer = ByteBuffer.allocate(SuperBlock.LENGTH);
+                channel.read(buffer);
+                assert !buffer.hasRemaining();
+                buffer.flip();
                 this.superBlock = SuperBlock.read(buffer);
                 this.inodeTableRegion = InodeTableRegion.read(this);
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to read Atlant file", e);
+                throw e;
             } finally {
                 AtlantFileSystem.channel.remove();
             }
@@ -62,10 +69,13 @@ public class AtlantFileSystem extends FileSystem {
             this.superBlock = SuperBlock.withDefaults(env);
             try (var channel = Files.newByteChannel(path, READ, WRITE, CREATE)) {
                 AtlantFileSystem.channel.set(channel);
-                superBlock.write(getBlockByteBuffer());
+                writeBlock(Block.Id.ZERO, superBlock::write);
                 dataBitmapRegion.init();
                 inodeBitmapRegion.init();
                 this.inodeTableRegion = new InodeTableRegion(this);
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to create Atlant file", e);
+                throw e;
             } finally {
                 AtlantFileSystem.channel.remove();
             }
@@ -203,62 +213,12 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     @Override
-    public void close() throws IOException {
-        beginWrite();
-        try {
-            if (!isOpen) {
-                return;
-            }
-            isOpen = false;          // set closed
-        } finally {
-            endWrite();
+    public void close() {
+        if (!isOpen) {
+            return;
         }
+        isOpen = false;
         provider.removeFileSystem(path);
-
-//        if (!streams.isEmpty()) {    // unlock and close all remaining streams
-//            Set<InputStream> copy = new HashSet<>(streams);
-//            for (InputStream is : copy) {
-//                is.close();
-//            }
-//        }
-//        beginWrite();                // lock and sync
-//        try {
-////            AccessController.doPrivileged((PrivilegedExceptionAction<Void>) () -> {
-////                sync();
-////                return null;
-////            });
-//            channel.close();              // close the ch just in case no update
-//            // and sync didn't close the ch
-//        } finally {
-//            endWrite();
-//        }
-//
-//        beginWrite();                // lock and sync
-//        try {
-//            // Clear the map so that its keys & values can be garbage collected
-//            inodes = null;
-//        } finally {
-//            endWrite();
-//        }
-//
-//        IOException ioe = null;
-//        synchronized (tmppaths) {
-//            for (Path p : tmppaths) {
-//                try {
-//                    AccessController.doPrivileged(
-//                            (PrivilegedExceptionAction<Boolean>) () -> Files.deleteIfExists(p));
-//                } catch (PrivilegedActionException e) {
-//                    IOException x = (IOException) e.getException();
-//                    if (ioe == null)
-//                        ioe = x;
-//                    else
-//                        ioe.addSuppressed(x);
-//                }
-//            }
-//        }
-//        provider.removeFileSystem(zfpath, this);
-//        if (ioe != null)
-//            throw ioe;
     }
 
     @Override
@@ -400,6 +360,7 @@ public class AtlantFileSystem extends FileSystem {
         try {
             channel.position(superBlock.firstBlockOfInodeTables().value() + (long) inodeSize() * inodeId.value());
             channel.read(buffer);
+            buffer.flip();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -424,6 +385,7 @@ public class AtlantFileSystem extends FileSystem {
     void writeInode(Inode.Id inodeId, Consumer<ByteBuffer> consumer) {
         var buffer = getInodeByteBuffer();
         consumer.accept(buffer);
+        buffer.flip();
         var channel = AtlantFileSystem.channel.get();
         assert channel != null;
         assert channel.isOpen();
@@ -433,14 +395,6 @@ public class AtlantFileSystem extends FileSystem {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void beginWrite() {
-        lock.writeLock().lock();
-    }
-
-    private void endWrite() {
-        lock.writeLock().unlock();
     }
 
     SuperBlock superBlock() {
