@@ -289,7 +289,7 @@ class DirEntryListTest {
         String newName = randomString(newNameLength);
         // When Then
         assertThatThrownBy(() -> block.rename(oldName, newName))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(DirEntryListOfMemoryException.class)
                 .hasMessageContaining("Not enough space");
     }
     //endregion
