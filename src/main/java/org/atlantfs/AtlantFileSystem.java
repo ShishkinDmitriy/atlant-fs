@@ -2,9 +2,11 @@ package org.atlantfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -13,11 +15,13 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.WatchService;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +30,9 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 
@@ -82,27 +88,28 @@ public class AtlantFileSystem extends FileSystem {
 
     void createDirectory(AtlantPath dir) throws IOException {
         try (var _ = new AtlantChannel(path, READ, WRITE)) {
-            var inode = root();
-            for (Path path : dir) {
-                var fileName = path.getFileName().toString();
-                DirEntry dirEntry;
-                try {
-                    dirEntry = inode.get(fileName);
-                } catch (NoSuchFileException e) {
-                    var newInode = inodeTableRegion.createDirectory();
-                    inode.addDirectory(newInode.getId(), fileName);
-                    inode = newInode;
-                    continue;
-                }
-                inode = findInode(dirEntry.getInode());
-            }
+            locate(dir, FileType.DIRECTORY, CREATE_NEW);
+//            var inode = root();
+//            for (Path path : dir) {
+//                var fileName = path.getFileName().toString();
+//                DirEntry dirEntry;
+//                try {
+//                    dirEntry = inode.get(fileName);
+//                } catch (NoSuchFileException e) {
+//                    var newInode = inodeTableRegion.createDirectory();
+//                    inode.addDirectory(newInode.getId(), fileName);
+//                    inode = newInode;
+//                    continue;
+//                }
+//                inode = findInode(dirEntry.getInode());
+//            }
         }
     }
 
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
         //noinspection resource
         var atlant = new AtlantChannel(path, READ);
-        var inode = locate(dir);
+        var inode = locate(dir, FileType.DIRECTORY);
         inode.readLock().lock();
         var iterator = inode.iterator();
         return new DirectoryStream<>() {
@@ -131,74 +138,146 @@ public class AtlantFileSystem extends FileSystem {
         };
     }
 
-    private Inode locate(AtlantPath absolutePath) throws NoSuchFileException {
+    private Inode locate(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+        return locate(absolutePath, null, new HashSet<>(Arrays.asList(options)));
+    }
+
+    private Inode locate(AtlantPath absolutePath, FileType fileType, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+        return locate(absolutePath, fileType, new HashSet<>(Arrays.asList(options)));
+    }
+
+    private Inode locate(AtlantPath absolutePath, FileType fileType, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+        if (absolutePath.equals(absolutePath.getRoot())) {
+            return inodeTableRegion.root();
+        }
         var inode = inodeTableRegion.root();
-        for (Path path : absolutePath) {
+        for (Path path : absolutePath.getParent()) {
+            var fileName = path.getFileName().toString();
             try {
-                var fileName = path.getFileName().toString();
                 DirEntry dirEntry = inode.get(fileName);
                 inode = findInode(dirEntry.getInode());
             } catch (NoSuchFileException e) {
-                throw new NoSuchFileException(path.toString());
+                if (!options.contains(CREATE) && !options.contains(CREATE_NEW)) {
+                    throw new NoSuchFileException(path.toString());
+                }
+                var newInode = inodeTableRegion.createDirectory();
+                inode.addDirectory(newInode.getId(), fileName);
+                inode = newInode;
             }
         }
-        return inode;
+        var fileName = absolutePath.getFileName().toString();
+        try {
+            DirEntry dirEntry = inode.get(fileName);
+            if (options.contains(CREATE_NEW)) {
+                throw new FileAlreadyExistsException(path.toString());
+            }
+            inode = findInode(dirEntry.getInode());
+            if (fileType != null && inode.getFileType() != fileType) {
+                throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists");
+            }
+            return inode;
+        } catch (NoSuchFileException e) {
+            if (!options.contains(CREATE) && !options.contains(CREATE_NEW)) {
+                throw new NoSuchFileException(path.toString());
+            }
+            return switch (fileType) {
+                case DIRECTORY -> {
+                    var directory = inodeTableRegion.createDirectory();
+                    inode.addDirectory(directory.getId(), fileName);
+                    yield directory;
+                }
+                case REGULAR_FILE -> {
+                    var regularFile = inodeTableRegion.createFile();
+                    inode.addRegularFile(regularFile.getId(), fileName);
+                    yield regularFile;
+                }
+                case UNKNOWN -> throw new IllegalArgumentException("Unsupported type");
+            };
+        }
     }
 
-    public <A extends BasicFileAttributes> SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
-        return null;
-//        Object content = loadContent(path.toAbsolutePath().toString());
-//        if (content instanceof List) {
-//            throw new IOException("Is a directory");
-//        }
-//        String base64 = ((Map<String, String>) content).get("content");
-//        final byte[] data = DatatypeConverter.parseBase64Binary(base64);
-//        return new SeekableByteChannel() {
-//            long position;
-//
-//            @Override
-//            public int read(ByteBuffer dst) throws IOException {
-//                int l = (int) Math.min(dst.remaining(), size() - position);
-//                dst.put(data, (int) position, l);
-//                position += l;
-//                return l;
-//            }
-//
-//            @Override
-//            public int write(ByteBuffer src) throws IOException {
-//                throw new UnsupportedOperationException();
-//            }
-//
-//            @Override
-//            public long position() throws IOException {
-//                return position;
-//            }
-//
-//            @Override
-//            public SeekableByteChannel position(long newPosition) throws IOException {
-//                position = newPosition;
-//                return this;
-//            }
-//
-//            @Override
-//            public long size() throws IOException {
-//                return data.length;
-//            }
-//
-//            @Override
-//            public SeekableByteChannel truncate(long size) throws IOException {
-//                throw new UnsupportedOperationException();
-//            }
-//
-//            @Override
-//            public boolean isOpen() {
-//                return true;
-//            }
-//
-//            @Override
-//            public void close() throws IOException {
-//            }
-//        };
+    public SeekableByteChannel newByteChannel(AtlantPath absolutePath, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
+        //noinspection resource
+        var _ = new AtlantChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
+        var inode = locate(absolutePath, FileType.REGULAR_FILE, options);
+        if (options.contains(WRITE) || options.contains(APPEND)) {
+            inode.writeLock().lock();
+        } else {
+            inode.readLock().lock();
+        }
+        return new SeekableByteChannel() {
+
+            private long position;
+
+            @Override
+            public int read(ByteBuffer dst) throws IOException {
+                checkOpen();
+                if (position > inode.getSize()) {
+                    throw new IOException("EOF reached");
+                }
+                var readLock = inode.readLock();
+                try {
+                    readLock.lock();
+                } finally {
+                    readLock.unlock();
+                }
+                return 0;
+            }
+
+            @Override
+            public int write(ByteBuffer src) throws IOException {
+                if (position >= inode.getSize() && !options.contains(StandardOpenOption.APPEND)) {
+                    throw new IOException("Opened as not APPEND");
+                }
+                return inode.write(position, src);
+            }
+
+            @Override
+            public long position() throws IOException {
+                return position;
+            }
+
+            @Override
+            public SeekableByteChannel position(long newPosition) throws IOException {
+                checkOpen();
+                if (newPosition < 0) {
+                    throw new IllegalArgumentException();
+                }
+                this.position = newPosition;
+                return this;
+            }
+
+            private void checkOpen() throws ClosedChannelException {
+                if (!isOpen()) {
+                    throw new ClosedChannelException();
+                }
+            }
+
+            @Override
+            public long size() throws IOException {
+                return inode.getSize();
+            }
+
+            @Override
+            public SeekableByteChannel truncate(long size) throws IOException {
+                return null;
+            }
+
+            @Override
+            public boolean isOpen() {
+                return false;
+            }
+
+            @Override
+            public void close() throws IOException {
+                if (options.contains(WRITE) || options.contains(APPEND)) {
+                    inode.writeLock().unlock();
+                } else {
+                    inode.readLock().unlock();
+                }
+            }
+
+        };
     }
 
     @Override
@@ -403,9 +482,10 @@ public class AtlantFileSystem extends FileSystem {
         return superBlock;
     }
 
-    public AtlantFileAttributes readAttributes(AtlantPath path, LinkOption[] options) throws IOException {
-        try (var _ = new AtlantChannel(this.path, READ)) {
-            var inode = locate(path);
+    public AtlantFileAttributes readAttributes(AtlantPath absolutePath, LinkOption[] options) throws IOException {
+        try (var _ = new AtlantChannel(path, READ)) {
+            var inode = locate(absolutePath);
+            // TODO: Add lock
             return AtlantFileAttributes.from(inode);
         }
     }

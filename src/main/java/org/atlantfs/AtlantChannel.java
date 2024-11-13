@@ -26,7 +26,7 @@ class AtlantChannel implements AutoCloseable {
             AtlantChannel.registry.set(this);
         } else {
             if (!existing.options.containsAll(Arrays.asList(options))) {
-                throw new IllegalArgumentException("Increasing open options, should be only [" + existing.options + "]");
+                throw new IllegalArgumentException("Increasing open options, should be only [" + existing.options + "] but were [" + Arrays.toString(options) + "]");
             }
             this.main = false;
             this.options = existing.options;

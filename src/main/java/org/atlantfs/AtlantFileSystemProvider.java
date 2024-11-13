@@ -80,10 +80,13 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        if (!(path instanceof AtlantPath)) {
+        if (!(path instanceof AtlantPath atlantPath)) {
             throw new ProviderMismatchException();
         }
-        return ((AtlantPath) path).getFileSystem().newByteChannel(path, options, attrs);
+        if (!atlantPath.isAbsolute()) {
+            atlantPath = atlantPath.toAbsolutePath();
+        }
+        return atlantPath.getFileSystem().newByteChannel(atlantPath, options, attrs);
     }
 
     @Override

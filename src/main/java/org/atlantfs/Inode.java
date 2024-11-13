@@ -55,7 +55,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     static Inode createRegularFile(AtlantFileSystem fileSystem, Inode.Id id) {
-        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DATA, new Data(new byte[0], iBlockLength(fileSystem.inodeSize())));
+        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DATA, new Data(new byte[iBlockLength(fileSystem.inodeSize())], iBlockLength(fileSystem.inodeSize())));
     }
 
     static Inode createDirectory(AtlantFileSystem fileSystem, Inode.Id id) {
