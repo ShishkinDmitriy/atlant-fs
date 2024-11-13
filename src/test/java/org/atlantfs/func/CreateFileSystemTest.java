@@ -23,6 +23,7 @@ class CreateFileSystemTest {
     private static final String ATLANT_FILE_NAME = "build/CreateFileSystemTest.atlant";
     private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
     private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
+    private static final Map<String, Object> DEFAULT_CONFIG = Map.of();
 
     @BeforeEach
     void beforeEach() throws IOException {
@@ -34,7 +35,7 @@ class CreateFileSystemTest {
     @Test
     void createFileSystem_when_noExistingAtlantFile() throws IOException {
         // When
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
             // Then
             assertThat(fileSystem).isNotNull();
             // When

@@ -3,7 +3,7 @@ package org.atlantfs;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-class DirTreeNode {
+class DirTreeNode implements Block {
 
     private int length;
     private int depth;

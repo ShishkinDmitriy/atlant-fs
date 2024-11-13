@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirTree implements DirectoryOperations, Block, IBlock {
+class DirTree implements DirectoryOperations, IBlock {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;

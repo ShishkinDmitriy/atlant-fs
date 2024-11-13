@@ -13,7 +13,7 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations, IBlock {
+final class DirEntryList implements DirectoryOperations, Block, IBlock {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 

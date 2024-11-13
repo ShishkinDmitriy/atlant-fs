@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-class Data implements IBlock {
+class Data implements Block, IBlock {
 
     private final byte[] data;
     private final int length;
@@ -18,9 +18,7 @@ class Data implements IBlock {
         while (buffer.hasRemaining()) {
             array[i++] = buffer.get();
         }
-        assert !buffer.hasRemaining();
-        var data1 = new Data(array, array.length);
-        return data1;
+        return new Data(array, array.length);
     }
 
     @Override

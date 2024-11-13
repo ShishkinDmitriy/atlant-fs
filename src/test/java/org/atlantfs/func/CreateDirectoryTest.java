@@ -25,8 +25,8 @@ class CreateDirectoryTest {
     private static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest2.atlant";
     private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
     private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
-    private static final int DIRS_COUNT = 3;
     private static final Map<String, Object> DEFAULT_CONFIG = Map.of();
+    private static final int DIRS_COUNT = 3;
 
     @BeforeEach
     void beforeEach() throws IOException {
@@ -41,7 +41,7 @@ class CreateDirectoryTest {
     @Test
     void createDirectory_depth() throws IOException {
         // Given
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) {
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
             var root = fileSystem.getPath("/");
             var path = root;
             for (int i = 0; i < DIRS_COUNT; i++) {
@@ -69,7 +69,7 @@ class CreateDirectoryTest {
             }
         }
         // When
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, Map.of())) { // Reopen
+        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) { // Reopen
             var root = fileSystem.getPath("/");
             var path = root;
             for (int i = 0; i < DIRS_COUNT; i++) {
@@ -159,7 +159,7 @@ class CreateDirectoryTest {
             var actual = new ArrayList<String>();
             Files.walkFileTree(fileSystem.getPath(normalize(projectDir)), new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     actual.add(normalize(dir));
                     return FileVisitResult.CONTINUE;
                 }
