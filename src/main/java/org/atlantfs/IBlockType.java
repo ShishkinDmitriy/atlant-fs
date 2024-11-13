@@ -13,17 +13,17 @@ enum IBlockType {
 
     INLINE_DIR_LIST(3, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
 
-    DIR_LIST(4, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
+    DIR_LIST(4, FileType.DIRECTORY, BlockMapping::read),
 
-    DIR_TREE(5, FileType.DIRECTORY, DirTree::read); // Unsupported yet
+    DIR_TREE(5, FileType.DIRECTORY, (inode, buffer) -> DirTree.read(inode.getFileSystem(), buffer)); // Unsupported yet
 
     static final int LENGTH = 1;
 
     final byte value;
     final FileType fileType;
-    BiFunction<AtlantFileSystem, ByteBuffer, IBlock> reader;
+    final BiFunction<Inode, ByteBuffer, IBlock> reader;
 
-    <T> IBlockType(int value, FileType fileType, BiFunction<AtlantFileSystem, ByteBuffer, IBlock> reader) {
+    IBlockType(int value, FileType fileType, BiFunction<Inode, ByteBuffer, IBlock> reader) {
         this.value = (byte) value;
         this.fileType = fileType;
         this.reader = reader;
@@ -42,8 +42,8 @@ enum IBlockType {
         };
     }
 
-    IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer) {
-        return reader.apply(fileSystem, buffer);
+    IBlock create(Inode inode, ByteBuffer buffer) {
+        return reader.apply(inode, buffer);
     }
 
     void write(ByteBuffer buffer) {
@@ -52,17 +52,6 @@ enum IBlockType {
 
     FileType getFileType() {
         return fileType;
-    }
-
-    boolean isRegularFile() {
-        return this == INLINE_DATA
-                || this == DIRECT_BLOCKS
-                || this == EXTENT_TREE;
-    }
-
-    boolean isDirectory() {
-        return this == INLINE_DIR_LIST
-                || this == DIR_TREE;
     }
 
 }

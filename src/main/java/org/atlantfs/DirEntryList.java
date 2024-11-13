@@ -3,6 +3,7 @@ package org.atlantfs;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
@@ -76,7 +77,7 @@ final class DirEntryList implements DirectoryOperations, IBlock {
 
     @Override
     public Iterator<DirEntry> iterator() {
-        return entries.iterator();
+        return isEmpty() ? Collections.emptyIterator() : entries.iterator();
     }
 
     @Override

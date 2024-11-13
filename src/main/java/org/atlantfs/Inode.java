@@ -34,7 +34,17 @@ class Inode implements FileOperations, DirectoryOperations {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public Inode(AtlantFileSystem fileSystem, Id id, long size, int blocksCount, IBlockType iBlockType, IBlock iBlock) {
+    private Inode(AtlantFileSystem fileSystem, Id id, long size, int blocksCount) {
+        this.fileSystem = fileSystem;
+        this.id = id;
+        this.size = size;
+        this.blocksCount = blocksCount;
+        this.iBlockType = IBlockType.INLINE_DATA;
+        this.iBlock = new Data(new byte[0], iBlockLength(fileSystem.inodeSize()));
+        checkInvariant();
+    }
+
+    private Inode(AtlantFileSystem fileSystem, Id id, long size, int blocksCount, IBlockType iBlockType, IBlock iBlock) {
         this.fileSystem = fileSystem;
         this.id = id;
         this.blocksCount = blocksCount;
@@ -45,11 +55,11 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     static Inode createRegularFile(AtlantFileSystem fileSystem, Inode.Id id) {
-        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DATA, new Data(new byte[0], iBlockLength(fileSystem)));
+        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DATA, new Data(new byte[0], iBlockLength(fileSystem.inodeSize())));
     }
 
     static Inode createDirectory(AtlantFileSystem fileSystem, Inode.Id id) {
-        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DIR_LIST, new DirEntryList(iBlockLength(fileSystem)));
+        return new Inode(fileSystem, id, 0, 0, IBlockType.INLINE_DIR_LIST, new DirEntryList(iBlockLength(fileSystem.inodeSize())));
     }
 
     static Inode read(AtlantFileSystem fileSystem, ByteBuffer buffer, Inode.Id id) {
@@ -60,9 +70,13 @@ class Inode implements FileOperations, DirectoryOperations {
         buffer.get(); // padding
         buffer.get();
         buffer.get();
-        var iBlock = iBlockType.create(fileSystem, buffer);
+        var inode = new Inode(fileSystem, id, size, blocksCount);
+        var iBlock = iBlockType.create(inode, buffer);
+        inode.iBlockType = iBlockType;
+        inode.iBlock = iBlock;
+        inode.checkInvariant();
         assert !buffer.hasRemaining() : "Read should consume all bytes, but actual [remaining=" + buffer.remaining() + "]";
-        return new Inode(fileSystem, id, size, blocksCount, iBlockType, iBlock);
+        return inode;
     }
 
     void write(ByteBuffer buffer) {
@@ -177,9 +191,7 @@ class Inode implements FileOperations, DirectoryOperations {
         var reserved = reserveBlock();
         size = (long) blocksCount * blockSize;
         fileSystem.writeBlock(reserved, dirEntryList::write);
-        var blockList = new BlockMapping(this);
-        blockList.getAddresses().add(reserved);
-        iBlock = blockList;
+        iBlock = BlockMapping.init(this, reserved);
         iBlockType = IBlockType.DIR_LIST;
         dirty = true;
         checkInvariant();
@@ -247,8 +259,8 @@ class Inode implements FileOperations, DirectoryOperations {
         return fileSystem.blockSize();
     }
 
-    static int iBlockLength(AtlantFileSystem fileSystem) {
-        return fileSystem.inodeSize() - MIN_LENGTH;
+    static int iBlockLength(int inodeSize) {
+        return inodeSize - MIN_LENGTH;
     }
 
     public long getSize() {

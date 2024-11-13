@@ -31,6 +31,10 @@ interface Block {
             return Id.of(address);
         }
 
+        public void write(ByteBuffer buffer) {
+            buffer.putInt(value);
+        }
+
         Id plus(int val) {
             return new Id(value + val);
         }
@@ -55,6 +59,7 @@ interface Block {
         public String toString() {
             return String.valueOf(value);
         }
+
     }
 
     record Range(Id from, int length) implements AbstractRange<Id> {

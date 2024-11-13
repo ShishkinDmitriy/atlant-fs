@@ -10,27 +10,48 @@ import java.util.List;
 
 class BlockMapping implements DirectoryOperations, IBlock {
 
-    private final List<Block.Id> addresses = new ArrayList<>();
+    private final List<Block.Id> addresses;
     private final Inode inode;
 
-    BlockMapping(Inode inode) {
+    private BlockMapping(Inode inode, List<Block.Id> addresses) {
         this.inode = inode;
+        this.addresses = addresses;
     }
 
     static BlockMapping read(Inode inode, ByteBuffer buffer) {
+        var numberOfAddresses = numberOfAddresses(inode);
+        var position = buffer.position();
+        assert buffer.remaining() >= numberOfAddresses * Block.Id.LENGTH : "Buffer should have at least [" + numberOfAddresses + "] Block.Id values, but has only [" + buffer.remaining() + "] bytes";
         var blocks = new ArrayList<Block.Id>();
-        for (int i = 0; i < Math.min(inode.getBlocksCount(), getDirectBlocks() + getDirectBlocks()); i++) {
-            Block.Id read = Block.Id.read(buffer);
-            blocks.add(read);
+        for (var i = 0; i < numberOfAddresses; i++) {
+            blocks.add(Block.Id.read(buffer));
         }
-        var blockList = new BlockMapping(inode);
-        blockList.getAddresses().addAll(blocks);
-        return blockList;
+        buffer.position(position + Inode.iBlockLength(inode.fileSystem.inodeSize()));
+        return new BlockMapping(inode, blocks);
+    }
+
+    static BlockMapping init(Inode inode, Block.Id blockId) {
+        var blocks = new ArrayList<Block.Id>();
+        blocks.add(blockId);
+        return new BlockMapping(inode, blocks);
+    }
+
+    private static int numberOfAddresses(Inode inode) {
+        var blocksCount = inode.getBlocksCount();
+        if (blocksCount <= numberOfDirectBlocks()) {
+            return blocksCount;
+        } else {
+            return blocksCount + indirectLevel(blocksCount - numberOfDirectBlocks(), inode.blockSize());
+        }
     }
 
     @Override
     public void write(ByteBuffer buffer) {
-        throw new UnsupportedOperationException();
+        var iBlockLength = Inode.iBlockLength(inode.fileSystem.inodeSize());
+        assert buffer.remaining() >= iBlockLength;
+        var initial = buffer.position();
+        addresses.forEach(id -> id.write(buffer));
+        buffer.position(initial + iBlockLength);
     }
 
     @Override
@@ -46,7 +67,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 if (currentHasNext) {
                     return true;
                 }
-                if (currentList < inode.getBlocksCount()) {
+                if (currentList + 1 < inode.getBlocksCount()) {
                     currentList++;
                     currentIterator = readDirEntryList(resolve(currentList)).iterator();
                     return true;
@@ -131,14 +152,15 @@ class BlockMapping implements DirectoryOperations, IBlock {
     }
 
     Block.Id resolve(int blockNumber) {
-        if (blockNumber < getDirectBlocks()) {
+        if (blockNumber < numberOfDirectBlocks()) {
             return addresses.get(blockNumber);
         }
-        blockNumber -= getDirectBlocks();
-        var level = indirectLevel(blockNumber);
-        assert addresses.size() >= getDirectBlocks() + level;
-        var blockId = addresses.get(getDirectBlocks() + level - 1);
-        for (var offset : indirectOffsets(level, blockNumber)) {
+        blockNumber -= numberOfDirectBlocks();
+        var blockSize = inode.blockSize();
+        var level = indirectLevel(blockNumber, blockSize);
+        assert addresses.size() >= numberOfDirectBlocks() + level;
+        var blockId = addresses.get(numberOfDirectBlocks() + level - 1);
+        for (var offset : indirectOffsets(level, blockNumber, blockSize)) {
             blockId = readBlockId(blockId, offset);
         }
         return blockId;
@@ -146,10 +168,10 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     void allocate() {
         var blockNumber = inode.getBlocksCount() + 1;
-        if (blockNumber >= getDirectBlocks()) {
-            blockNumber -= getDirectBlocks();
-            var level = indirectLevel(blockNumber);
-            var offsets = indirectOffsets(level, blockNumber);
+        if (blockNumber >= numberOfDirectBlocks()) {
+            blockNumber -= numberOfDirectBlocks();
+            var level = indirectLevel(blockNumber, inode.blockSize());
+            var offsets = indirectOffsets(level, blockNumber, inode.blockSize());
             for (var i = 0; i < offsets.size(); i++) {
                 var last = offsets.pollLast();
 //                if () {
@@ -165,8 +187,8 @@ class BlockMapping implements DirectoryOperations, IBlock {
         return Block.Id.read(buffer);
     }
 
-    int indirectLevel(long blockNumber) {
-        var idsPerBlock = idsPerBlock();
+    static int indirectLevel(long blockNumber, int blockSize) {
+        var idsPerBlock = idsPerBlock(blockSize);
         int i = 0;
         while (blockNumber >= 0) {
             i++;
@@ -175,12 +197,12 @@ class BlockMapping implements DirectoryOperations, IBlock {
         return i;
     }
 
-    Deque<Integer> indirectOffsets(int level, int blockNumber) {
+    static Deque<Integer> indirectOffsets(int level, int blockNumber, int blockSize) {
         var result = new LinkedList<Integer>();
         var current = blockNumber;
         for (int i = 0; i < level; i++) {
-            result.addFirst(current % idsPerBlock());
-            current /= idsPerBlock();
+            result.addFirst(current % idsPerBlock(blockSize));
+            current /= idsPerBlock(blockSize);
         }
         return result;
     }
@@ -191,10 +213,10 @@ class BlockMapping implements DirectoryOperations, IBlock {
     }
 
     private boolean canGrow() {
-        return inode.getBlocksCount() < getDirectBlocks() + (long) getIndirectBlocks() * inode.blockSize();
+        return inode.getBlocksCount() < numberOfDirectBlocks() + (long) getIndirectBlocks() * inode.blockSize();
     }
 
-    static int getDirectBlocks() {
+    static int numberOfDirectBlocks() {
         return 7;
     }
 
@@ -202,12 +224,8 @@ class BlockMapping implements DirectoryOperations, IBlock {
         return 1;
     }
 
-    int idsPerBlock() {
-        return inode.blockSize() / Block.Id.LENGTH;
-    }
-
-    public List<Block.Id> getAddresses() {
-        return addresses;
+    static int idsPerBlock(int blockSize) {
+        return blockSize / Block.Id.LENGTH;
     }
 
 }

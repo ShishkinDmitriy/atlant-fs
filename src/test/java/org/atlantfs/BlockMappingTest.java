@@ -6,16 +6,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.converter.ConvertWith;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
-@ExtendWith({MockitoExtension.class, LoggingExtension.class})
+@ExtendWith(LoggingExtension.class)
 class BlockMappingTest {
 
     @CsvSource(value = {
@@ -37,12 +33,9 @@ class BlockMappingTest {
             "        4096 |   4294967296 |        5 ", // 4_294_967_296 == 2^32
     }, delimiter = '|')
     @ParameterizedTest
-    void indirectLevel_should_calculateIndirectOffsets(int blockSize, long blockNumber, int expectedLevel, @Mock Inode inode) {
-        // Given
-        when(inode.blockSize()).thenReturn(blockSize);
-        var blockList = new BlockMapping(inode);
+    void indirectLevel_should_calculateIndirectOffsets(int blockSize, long blockNumber, int expectedLevel) {
         // When
-        var result = blockList.indirectLevel(blockNumber);
+        var result = BlockMapping.indirectLevel(blockNumber, blockSize);
         // Then
         assertThat(result).isEqualTo(expectedLevel);
     }
@@ -74,12 +67,9 @@ class BlockMappingTest {
             "         512 |     3 |        16384 |    1,0,0 ", // 16_384 == 128 * 128
     }, delimiter = '|')
     @ParameterizedTest
-    void indirectOffsets_should_calculateIndirectOffsets(int blockSize, int level, int blockNumber, @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedCoordinates, @Mock Inode inode) {
-        // Given
-        when(inode.blockSize()).thenReturn(blockSize);
-        var blockList = new BlockMapping(inode);
+    void indirectOffsets_should_calculateIndirectOffsets(int blockSize, int level, int blockNumber, @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedCoordinates) {
         // When
-        var result = blockList.indirectOffsets(level, blockNumber);
+        var result = BlockMapping.indirectOffsets(level, blockNumber, blockSize);
         // Then
         assertThat(result).containsExactlyElementsOf(expectedCoordinates);
     }
