@@ -198,7 +198,7 @@ public class AtlantFileSystem extends FileSystem {
 
     public SeekableByteChannel newByteChannel(AtlantPath absolutePath, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
         //noinspection resource
-        var _ = new AtlantFileChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
+        var atlant = new AtlantFileChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
         var inode = locate(absolutePath, FileType.REGULAR_FILE, options);
         if (options.contains(WRITE) || options.contains(APPEND)) {
             inode.writeLock().lock();
@@ -275,6 +275,7 @@ public class AtlantFileSystem extends FileSystem {
                 } else {
                     inode.readLock().unlock();
                 }
+                atlant.close();
             }
 
         };
