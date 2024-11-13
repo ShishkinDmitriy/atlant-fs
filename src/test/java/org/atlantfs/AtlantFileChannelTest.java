@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 @ExtendWith({LoggingExtension.class, MockitoExtension.class})
-class AtlantChannelTest {
+class AtlantFileChannelTest {
 
     private static final String ATLANT_FILE_NAME = "build/AtlantChannelTest.atlant";
     private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
@@ -35,11 +35,11 @@ class AtlantChannelTest {
     @Test
     void new_should_throwIllegalArgumentException_ifOpenOptionsIncreased(@Mock OpenOption option) throws IOException {
         // Given
-        try (var _ = new AtlantChannel(ATLANT_FILE, READ)) {
+        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
             // When Then
             assertThatThrownBy(() -> {
-                try (var _ = new AtlantChannel(ATLANT_FILE, READ, option)) {
-                    AtlantChannel.get();
+                try (var _ = new AtlantFileChannel(ATLANT_FILE, READ, option)) {
+                    AtlantFileChannel.get();
                 }
             }).isInstanceOf(IllegalArgumentException.class);
         }
@@ -49,9 +49,9 @@ class AtlantChannelTest {
     void get_should_beOpenInside() throws IOException {
         // Given
         SeekableByteChannel channel;
-        try (var _ = new AtlantChannel(ATLANT_FILE, READ)) {
+        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
             // When
-            channel = AtlantChannel.get();
+            channel = AtlantFileChannel.get();
             // Then
             assertThat(channel).isNotNull();
             assertThat(channel.isOpen()).isTrue();
@@ -65,15 +65,15 @@ class AtlantChannelTest {
     void get_should_notBeClosedIfReentrant() throws IOException {
         // Given
         SeekableByteChannel channel0;
-        try (var _ = new AtlantChannel(ATLANT_FILE, READ)) {
+        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
             // When
-            channel0 = AtlantChannel.get();
-            try (var _ = new AtlantChannel(ATLANT_FILE, READ)) {
+            channel0 = AtlantFileChannel.get();
+            try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
                 // When
-                var channel1 = AtlantChannel.get();
-                try (var _ = new AtlantChannel(ATLANT_FILE, READ)) {
+                var channel1 = AtlantFileChannel.get();
+                try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
                     // When
-                    var channel2 = AtlantChannel.get();
+                    var channel2 = AtlantFileChannel.get();
                     // Then
                     assertThat(channel2).isNotNull();
                     assertSoftly(softly -> {

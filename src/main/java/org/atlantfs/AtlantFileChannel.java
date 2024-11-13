@@ -1,93 +1,56 @@
 package org.atlantfs;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.OpenOption;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileAttribute;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
-public class AtlantFileChannel implements SeekableByteChannel {
+class AtlantFileChannel implements AutoCloseable {
 
-    private long position;
-    private Inode inode;
-    private Set<? extends OpenOption> options;
-    private FileAttribute<?>[] attrs;
-    private AtlantFileSystem fileSystem;
+    private static final ThreadLocal<AtlantFileChannel> registry = new ThreadLocal<>();
 
-    int blockSize() {
-        return fileSystem.blockSize();
-    }
+    private final boolean main;
+    private final Set<OpenOption> options;
+    private final SeekableByteChannel channel;
 
-    @Override
-    public int read(ByteBuffer dst) throws IOException {
-        checkOpen();
-        if (position > inode.getSize()) {
-            throw new IOException("EOF reached");
-        }
-        var readLock = inode.readLock();
-        try {
-            readLock.lock();
-        } finally {
-            readLock.unlock();
-        }
-        return 0;
-    }
-
-    @Override
-    public int write(ByteBuffer src) throws IOException {
-        if (position >= inode.getSize()) {
-            if (!options.contains(StandardOpenOption.APPEND)) {
-                throw new IOException("Opened as not APPEND");
+    AtlantFileChannel(Path path, OpenOption... options) throws IOException {
+        var existing = AtlantFileChannel.registry.get();
+        if (existing == null) {
+            this.main = true;
+            this.options = new HashSet<>(Arrays.asList(options));
+            this.channel = Files.newByteChannel(path, options);
+            AtlantFileChannel.registry.set(this);
+        } else {
+            if (!existing.options.containsAll(Arrays.asList(options))) {
+                throw new IllegalArgumentException("Increasing open options, should be only [" + existing.options + "] but were [" + Arrays.toString(options) + "]");
             }
-            // Reserve if needed
-            var blockNumber = inode.getSize() / blockSize();
-            var remaining = src.remaining();
+            this.main = false;
+            this.options = existing.options;
+            this.channel = existing.channel;
         }
-        return 0;
-    }
-
-    @Override
-    public long position() throws IOException {
-        return position;
-    }
-
-    @Override
-    public SeekableByteChannel position(long newPosition) throws IOException {
-        checkOpen();
-        if (newPosition < 0) {
-            throw new IllegalArgumentException();
-        }
-        this.position = newPosition;
-        return this;
-    }
-
-    private void checkOpen() throws ClosedChannelException {
-        if (!isOpen()) {
-            throw new ClosedChannelException();
-        }
-    }
-
-    @Override
-    public long size() throws IOException {
-        return inode.getSize();
-    }
-
-    @Override
-    public SeekableByteChannel truncate(long size) throws IOException {
-        return null;
-    }
-
-    @Override
-    public boolean isOpen() {
-        return false;
     }
 
     @Override
     public void close() throws IOException {
+        if (!main) {
+            return;
+        }
+        var existing = AtlantFileChannel.registry.get();
+        assert existing != null;
+        var channel = existing.channel;
+        assert channel != null;
+        channel.close();
+        AtlantFileChannel.registry.remove();
+    }
 
+    public static SeekableByteChannel get() {
+        var existing = AtlantFileChannel.registry.get();
+        assert existing != null;
+        return existing.channel;
     }
 
 }

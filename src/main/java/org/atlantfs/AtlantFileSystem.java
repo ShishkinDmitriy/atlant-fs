@@ -57,8 +57,8 @@ public class AtlantFileSystem extends FileSystem {
         this.path = path;
         if (Files.exists(path)) {
             log.finer(() -> "Opening Atlant file system [path=" + path.toAbsolutePath() + "]...");
-            try (var _ = new AtlantChannel(path, READ)) {
-                var channel = AtlantChannel.get();
+            try (var _ = new AtlantFileChannel(path, READ)) {
+                var channel = AtlantFileChannel.get();
                 var buffer = ByteBuffer.allocate(SuperBlock.LENGTH);
                 channel.read(buffer);
                 assert !buffer.hasRemaining();
@@ -73,7 +73,7 @@ public class AtlantFileSystem extends FileSystem {
         } else {
             log.finer(() -> "Creating new Atlant file system [path=" + path.toAbsolutePath() + "]...");
             this.superBlock = SuperBlock.withDefaults(env);
-            try (var _ = new AtlantChannel(path, READ, WRITE, CREATE)) {
+            try (var _ = new AtlantFileChannel(path, READ, WRITE, CREATE)) {
                 writeBlock(Block.Id.ZERO, superBlock::write);
                 dataBitmapRegion.init();
                 inodeBitmapRegion.init();
@@ -87,7 +87,7 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     void createDirectory(AtlantPath dir) throws IOException {
-        try (var _ = new AtlantChannel(path, READ, WRITE)) {
+        try (var _ = new AtlantFileChannel(path, READ, WRITE)) {
             locate(dir, FileType.DIRECTORY, CREATE_NEW);
 //            var inode = root();
 //            for (Path path : dir) {
@@ -108,7 +108,7 @@ public class AtlantFileSystem extends FileSystem {
 
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
         //noinspection resource
-        var atlant = new AtlantChannel(path, READ);
+        var atlant = new AtlantFileChannel(path, READ);
         var inode = locate(dir, FileType.DIRECTORY);
         inode.readLock().lock();
         var iterator = inode.iterator();
@@ -198,7 +198,7 @@ public class AtlantFileSystem extends FileSystem {
 
     public SeekableByteChannel newByteChannel(AtlantPath absolutePath, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
         //noinspection resource
-        var _ = new AtlantChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
+        var _ = new AtlantFileChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
         var inode = locate(absolutePath, FileType.REGULAR_FILE, options);
         if (options.contains(WRITE) || options.contains(APPEND)) {
             inode.writeLock().lock();
@@ -411,7 +411,7 @@ public class AtlantFileSystem extends FileSystem {
 
     ByteBuffer readBlock(Block.Id blockId) {
         var buffer = getBlockByteBuffer();
-        var channel = AtlantChannel.get();
+        var channel = AtlantFileChannel.get();
         assert channel != null;
         assert channel.isOpen();
         try {
@@ -426,7 +426,7 @@ public class AtlantFileSystem extends FileSystem {
 
     ByteBuffer readInode(Inode.Id inodeId) {
         var buffer = getInodeByteBuffer();
-        var channel = AtlantChannel.get();
+        var channel = AtlantFileChannel.get();
         assert channel != null;
         assert channel.isOpen();
         try {
@@ -443,7 +443,7 @@ public class AtlantFileSystem extends FileSystem {
         var buffer = getBlockByteBuffer();
         consumer.accept(buffer);
         buffer.flip();
-        var channel = AtlantChannel.get();
+        var channel = AtlantFileChannel.get();
         assert channel != null;
         assert channel.isOpen();
         try {
@@ -458,7 +458,7 @@ public class AtlantFileSystem extends FileSystem {
         var buffer = getInodeByteBuffer();
         consumer.accept(buffer);
         buffer.flip();
-        var channel = AtlantChannel.get();
+        var channel = AtlantFileChannel.get();
         assert channel != null;
         assert channel.isOpen();
         try {
@@ -483,7 +483,7 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     public AtlantFileAttributes readAttributes(AtlantPath absolutePath, LinkOption[] options) throws IOException {
-        try (var _ = new AtlantChannel(path, READ)) {
+        try (var _ = new AtlantFileChannel(path, READ)) {
             var inode = locate(absolutePath);
             // TODO: Add lock
             return AtlantFileAttributes.from(inode);
