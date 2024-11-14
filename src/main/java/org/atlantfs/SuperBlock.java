@@ -1,12 +1,6 @@
 package org.atlantfs;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.FileSystems;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.atlantfs.AtlantFileSystem.BLOCK_SIZE;
 
 final class SuperBlock {
 
@@ -18,6 +12,19 @@ final class SuperBlock {
     private int numberOfBlockBitmaps;
     private int numberOfInodeBitmaps;
     private int numberOfInodeTables;
+
+    private SuperBlock() {
+    }
+
+    static SuperBlock init(AtlantConfig atlantConfig) {
+        var superBlock = new SuperBlock();
+        superBlock.setBlockSize(atlantConfig.blockSize());
+        superBlock.setInodeSize(atlantConfig.inodeSize());
+        superBlock.setNumberOfBlockBitmaps(atlantConfig.numberOfBlockBitmaps());
+        superBlock.setNumberOfInodeBitmaps(atlantConfig.numberOfInodeBitmaps());
+        superBlock.setNumberOfInodeTables(atlantConfig.numberOfInodeTables());
+        return superBlock;
+    }
 
     static SuperBlock read(ByteBuffer buffer) {
         short magic = buffer.getShort();
@@ -33,20 +40,6 @@ final class SuperBlock {
         result.setNumberOfInodeTables(buffer.getInt());
         assert !buffer.hasRemaining();
         return result;
-    }
-
-    static SuperBlock withDefaults(Map<String, ?> env) {
-        int blockSize = Optional.ofNullable(env.get(BLOCK_SIZE))
-                .filter(Integer.class::isInstance)
-                .map(Integer.class::cast)
-                .orElseGet(SuperBlock::getUnderlyingBlockSize);
-        var superBlock = new SuperBlock();
-        superBlock.setBlockSize(blockSize);
-        superBlock.setInodeSize(64);
-        superBlock.setNumberOfBlockBitmaps(1);
-        superBlock.setNumberOfInodeBitmaps(4);
-        superBlock.setNumberOfInodeTables(64);
-        return superBlock;
     }
 
     void write(ByteBuffer buffer) {
@@ -94,18 +87,6 @@ final class SuperBlock {
 
     Block.Id firstBlockOfData() {
         return firstBlockOfInodeTables().plus(numberOfInodeTables);
-    }
-
-    private static int getUnderlyingBlockSize() {
-        try {
-            return Math.toIntExact(FileSystems.getDefault()
-                    .getFileStores()
-                    .iterator()
-                    .next()
-                    .getBlockSize());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     //region private setters

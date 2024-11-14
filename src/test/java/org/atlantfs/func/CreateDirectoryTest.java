@@ -1,50 +1,50 @@
 package org.atlantfs.func;
 
+import org.atlantfs.AtlantConfig;
 import org.atlantfs.util.LoggingExtension;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.atlantfs.util.AtlantFileUtil.atlantRoot;
+import static org.atlantfs.util.AtlantFileUtil.atlantUri;
+import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
+import static org.atlantfs.util.PathUtil.allDirectories;
+import static org.atlantfs.util.PathUtil.normalize;
+import static org.atlantfs.util.PathUtil.projectDir;
 
 @ExtendWith(LoggingExtension.class)
 class CreateDirectoryTest {
 
-    private static final String ATLANT_FILE_NAME = "build/CreateDirectoryTest2.atlant";
-    private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
-    private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
-    private static final Map<String, Object> DEFAULT_CONFIG = Map.of();
-    private static final int DIRS_COUNT = 3;
-
-    @BeforeEach
-    void beforeEach() throws IOException {
-        if (Files.exists(ATLANT_FILE)) {
-            Files.delete(ATLANT_FILE);
-        }
+    @BeforeAll
+    static void beforeAll(TestInfo testInfo) throws IOException {
+        deleteAllAtlantFiles(testInfo);
     }
 
     /**
      * Creates {@code /level-0/level-1/level-3} and check their subdirectories.
      */
     @Test
-    void createDirectory_depth() throws IOException {
+    void createDirectory_depth(TestInfo testInfo) throws IOException {
         // Given
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+        var dirsCount = 3;
+        var atlantUri = atlantUri(testInfo);
+        var atlantConfig = AtlantConfig.defaults();
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var root = fileSystem.getPath("/");
             var path = root;
-            for (int i = 0; i < DIRS_COUNT; i++) {
+            for (int i = 0; i < dirsCount; i++) {
                 path = path.resolve("level-" + i);
             }
             // When
@@ -69,10 +69,10 @@ class CreateDirectoryTest {
             }
         }
         // When
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) { // Reopen
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, AtlantConfig.defaults().asMap())) { // Reopen
             var root = fileSystem.getPath("/");
             var path = root;
-            for (int i = 0; i < DIRS_COUNT; i++) {
+            for (int i = 0; i < dirsCount; i++) {
                 path = path.resolve("level-" + i);
             }
             // Then
@@ -101,11 +101,14 @@ class CreateDirectoryTest {
      * Creates {@code /level-0}, {@code /level-2}, {@code /level-3} and check their subdirectories.
      */
     @Test
-    void createDirectory_breadth() throws IOException {
+    void createDirectory_breadth(TestInfo testInfo) throws IOException {
         // Given
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+        var dirsCount = 3;
+        var atlantUri = atlantUri(testInfo);
+        var atlantConfig = AtlantConfig.defaults();
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var paths = new ArrayList<Path>();
-            for (int i = 0; i < DIRS_COUNT; i++) {
+            for (int i = 0; i < dirsCount; i++) {
                 paths.add(fileSystem.getPath("/level-" + i));
             }
             // When
@@ -119,12 +122,12 @@ class CreateDirectoryTest {
                     agg.add(child);
                 }
             }
-            assertThat(agg).hasSize(DIRS_COUNT).containsExactlyInAnyOrderElementsOf(paths);
+            assertThat(agg).hasSize(dirsCount).containsExactlyInAnyOrderElementsOf(paths);
         }
         // When
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var paths = new ArrayList<Path>();
-            for (int i = 0; i < DIRS_COUNT; i++) {
+            for (int i = 0; i < dirsCount; i++) {
                 paths.add(fileSystem.getPath("/level-" + i));
             }
             // Then
@@ -134,20 +137,27 @@ class CreateDirectoryTest {
                     agg.add(child);
                 }
             }
-            assertThat(agg).hasSize(DIRS_COUNT).containsExactlyInAnyOrderElementsOf(paths);
+            assertThat(agg).hasSize(dirsCount).containsExactlyInAnyOrderElementsOf(paths);
         }
     }
 
     @Test
-    void soapOpera() throws IOException {
+    void soapOpera(TestInfo testInfo) throws IOException {
         // Given
         var collection = new ArrayList<String>();
-        var projectDir = Paths.get(System.getProperty("project.dir"));
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+        var atlantUri = atlantUri(testInfo);
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(1024)
+                .numberOfInodeBitmaps(1)
+                .numberOfInodeTables(32);
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // When
-            Files.walkFileTree(projectDir, new SimpleFileVisitor<>() {
+            Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    if (dir.equals(atlantRoot())) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
                     var normalized = normalize(dir);
                     var path = fileSystem.getPath(normalized);
                     Files.createDirectories(path);
@@ -156,22 +166,8 @@ class CreateDirectoryTest {
                 }
             });
             // Then
-            var actual = new ArrayList<String>();
-            Files.walkFileTree(fileSystem.getPath(normalize(projectDir)), new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                    actual.add(normalize(dir));
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-            assertThat(actual).containsExactlyInAnyOrderElementsOf(collection);
+            assertThat(allDirectories(fileSystem)).containsExactlyInAnyOrderElementsOf(collection);
         }
-    }
-
-    private String normalize(Path path) {
-        return path.toString()
-                .replaceFirst("C:\\\\", "/")
-                .replace('\\', '/');
     }
 
 }

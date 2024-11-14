@@ -1,50 +1,45 @@
 package org.atlantfs.func;
 
+import org.atlantfs.AtlantConfig;
 import org.atlantfs.util.LoggingExtension;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
+import static org.atlantfs.util.AtlantFileUtil.atlantUri;
 
 @ExtendWith(LoggingExtension.class)
 class CreateFileSystemTest {
 
-    private static final String ATLANT_FILE_NAME = "build/CreateFileSystemTest.atlant";
-    private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
-    private static final URI ATLANT_URI = URI.create("atlant:" + ATLANT_FILE_NAME + "!/");
-    private static final Map<String, Object> DEFAULT_CONFIG = Map.of();
-
-    @BeforeEach
-    void beforeEach() throws IOException {
-        if (Files.exists(ATLANT_FILE)) {
-            Files.delete(ATLANT_FILE);
-        }
+    @BeforeAll
+    static void beforeAll(TestInfo testInfo) throws IOException {
+        deleteAllAtlantFiles(testInfo);
     }
 
     @Test
-    void createFileSystem_when_noExistingAtlantFile() throws IOException {
+    void createFileSystem_when_noExistingAtlantFile(TestInfo testInfo) throws IOException {
         // When
-        try (var fileSystem = FileSystems.newFileSystem(ATLANT_URI, DEFAULT_CONFIG)) {
+        var atlantUri = atlantUri(testInfo);
+        var atlantConfig = AtlantConfig.defaults();
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // Then
             assertThat(fileSystem).isNotNull();
             // When
-            try (var fileSystem2 = FileSystems.getFileSystem(ATLANT_URI)) {
+            try (var fileSystem2 = FileSystems.getFileSystem(atlantUri)) {
                 // Then
                 assertThat(fileSystem2).isNotNull().isSameAs(fileSystem);
             }
         }
-        assertThatThrownBy(() -> FileSystems.getFileSystem(ATLANT_URI))
+        assertThatThrownBy(() -> FileSystems.getFileSystem(atlantUri))
                 .isInstanceOf(FileSystemNotFoundException.class);
     }
+
 }

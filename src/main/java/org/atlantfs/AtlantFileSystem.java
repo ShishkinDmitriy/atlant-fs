@@ -15,7 +15,6 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.UserPrincipalLookupService;
@@ -33,14 +32,12 @@ import java.util.logging.Logger;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
-import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 public class AtlantFileSystem extends FileSystem {
 
     private static final Logger log = Logger.getLogger(AtlantFileSystem.class.getName());
 
-    public static final String BLOCK_SIZE = "block-size";
     private static final ThreadLocal<ByteBuffer> blockByteBuffer = new ThreadLocal<>();
     private static final ThreadLocal<ByteBuffer> inodeByteBuffer = new ThreadLocal<>();
 
@@ -53,15 +50,16 @@ public class AtlantFileSystem extends FileSystem {
     private volatile boolean isOpen = true;
 
     public AtlantFileSystem(AtlantFileSystemProvider provider, Path path, Map<String, ?> env) throws IOException {
+        assert AtlantFileChannel.notExists();
         this.provider = provider;
         this.path = path;
         if (Files.exists(path)) {
             log.finer(() -> "Opening Atlant file system [path=" + path.toAbsolutePath() + "]...");
-            try (var _ = new AtlantFileChannel(path, READ)) {
+            try (var _ = AtlantFileChannel.openForRead(path)) {
                 var channel = AtlantFileChannel.get();
                 var buffer = ByteBuffer.allocate(SuperBlock.LENGTH);
                 channel.read(buffer);
-                assert !buffer.hasRemaining();
+//                assert !buffer.hasRemaining();
                 buffer.flip();
                 this.superBlock = SuperBlock.read(buffer);
                 this.inodeTableRegion = InodeTableRegion.read(this);
@@ -72,8 +70,9 @@ public class AtlantFileSystem extends FileSystem {
             }
         } else {
             log.finer(() -> "Creating new Atlant file system [path=" + path.toAbsolutePath() + "]...");
-            this.superBlock = SuperBlock.withDefaults(env);
-            try (var _ = new AtlantFileChannel(path, READ, WRITE, CREATE)) {
+            var config = AtlantConfig.fromMap(env);
+            this.superBlock = SuperBlock.init(config);
+            try (var _ = AtlantFileChannel.openForCreate(path)) {
                 writeBlock(Block.Id.ZERO, superBlock::write);
                 dataBitmapRegion.init();
                 inodeBitmapRegion.init();
@@ -87,55 +86,50 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     void createDirectory(AtlantPath dir) throws IOException {
-        try (var _ = new AtlantFileChannel(path, READ, WRITE)) {
+        try (var _ = AtlantFileChannel.openForWrite(path)) {
             locate(dir, FileType.DIRECTORY, CREATE_NEW);
-//            var inode = root();
-//            for (Path path : dir) {
-//                var fileName = path.getFileName().toString();
-//                DirEntry dirEntry;
-//                try {
-//                    dirEntry = inode.get(fileName);
-//                } catch (NoSuchFileException e) {
-//                    var newInode = inodeTableRegion.createDirectory();
-//                    inode.addDirectory(newInode.getId(), fileName);
-//                    inode = newInode;
-//                    continue;
-//                }
-//                inode = findInode(dirEntry.getInode());
-//            }
         }
     }
 
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        //noinspection resource
-        var atlant = new AtlantFileChannel(path, READ);
-        var inode = locate(dir, FileType.DIRECTORY);
-        inode.readLock().lock();
-        var iterator = inode.iterator();
-        return new DirectoryStream<>() {
-            @Override
-            public Iterator<Path> iterator() {
-                return new Iterator<>() {
+        var atlant = AtlantFileChannel.openForRead(path);
+        Inode inode = null;
+        try {
+            inode = locate(dir, FileType.DIRECTORY);
+            inode.readLock().lock();
+            Inode finalInode = inode;
+            var iterator = finalInode.iterator();
+            return new DirectoryStream<>() {
+                @Override
+                public Iterator<Path> iterator() {
+                    return new Iterator<>() {
 
-                    @Override
-                    public boolean hasNext() {
-                        return iterator.hasNext();
-                    }
+                        @Override
+                        public boolean hasNext() {
+                            return iterator.hasNext();
+                        }
 
-                    @Override
-                    public Path next() {
-                        return getPath(dir.toString(), iterator.next().getName());
-                    }
+                        @Override
+                        public Path next() {
+                            return getPath(dir.toString(), iterator.next().getName());
+                        }
 
-                };
-            }
+                    };
+                }
 
-            @Override
-            public void close() throws IOException {
-                atlant.close();
+                @Override
+                public void close() throws IOException {
+                    atlant.close();
+                    finalInode.readLock().unlock();
+                }
+            };
+        } catch (IOException | AssertionError e) {
+            atlant.close();
+            if (inode != null) {
                 inode.readLock().unlock();
             }
-        };
+            throw e;
+        }
     }
 
     private Inode locate(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
@@ -197,88 +191,101 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     public SeekableByteChannel newByteChannel(AtlantPath absolutePath, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
-        //noinspection resource
-        var atlant = new AtlantFileChannel(path, options.contains(WRITE) ? new StandardOpenOption[]{WRITE, READ} : new StandardOpenOption[]{READ});
-        var inode = locate(absolutePath, FileType.REGULAR_FILE, options);
-        if (options.contains(WRITE) || options.contains(APPEND)) {
-            inode.writeLock().lock();
-        } else {
-            inode.readLock().lock();
-        }
-        return new SeekableByteChannel() {
+        var atlant = options.contains(WRITE) ? AtlantFileChannel.openForWrite(path) : AtlantFileChannel.openForRead(path);
+        Inode inode = null;
+        try {
+            inode = locate(absolutePath, FileType.REGULAR_FILE, options);
+            if (options.contains(WRITE) || options.contains(APPEND)) {
+                inode.writeLock().lock();
+            } else {
+                inode.readLock().lock();
+            }
+            Inode finalInode = inode;
+            return new SeekableByteChannel() {
 
-            private long position;
+                private long position;
 
-            @Override
-            public int read(ByteBuffer dst) throws IOException {
-                checkOpen();
-                if (position > inode.getSize()) {
-                    throw new IOException("EOF reached");
+                @Override
+                public int read(ByteBuffer dst) throws IOException {
+                    checkOpen();
+                    if (position > finalInode.getSize()) {
+                        throw new IOException("EOF reached");
+                    }
+                    var readLock = finalInode.readLock();
+                    try {
+                        readLock.lock();
+                    } finally {
+                        readLock.unlock();
+                    }
+                    return 0;
                 }
-                var readLock = inode.readLock();
-                try {
-                    readLock.lock();
-                } finally {
-                    readLock.unlock();
+
+                @Override
+                public int write(ByteBuffer src) throws IOException {
+                    if (position >= finalInode.getSize() && !options.contains(APPEND)) {
+                        throw new IOException("Opened as not APPEND");
+                    }
+                    return finalInode.write(position, src);
                 }
-                return 0;
-            }
 
-            @Override
-            public int write(ByteBuffer src) throws IOException {
-                if (position >= inode.getSize() && !options.contains(StandardOpenOption.APPEND)) {
-                    throw new IOException("Opened as not APPEND");
+                @Override
+                public long position() {
+                    return position;
                 }
-                return inode.write(position, src);
-            }
 
-            @Override
-            public long position() throws IOException {
-                return position;
-            }
-
-            @Override
-            public SeekableByteChannel position(long newPosition) throws IOException {
-                checkOpen();
-                if (newPosition < 0) {
-                    throw new IllegalArgumentException();
+                @Override
+                public SeekableByteChannel position(long newPosition) throws IOException {
+                    checkOpen();
+                    if (newPosition < 0) {
+                        throw new IllegalArgumentException();
+                    }
+                    this.position = newPosition;
+                    return this;
                 }
-                this.position = newPosition;
-                return this;
-            }
 
-            private void checkOpen() throws ClosedChannelException {
-                if (!isOpen()) {
-                    throw new ClosedChannelException();
+                private void checkOpen() throws ClosedChannelException {
+                    if (!isOpen()) {
+                        throw new ClosedChannelException();
+                    }
                 }
-            }
 
-            @Override
-            public long size() throws IOException {
-                return inode.getSize();
-            }
+                @Override
+                public long size() {
+                    return finalInode.getSize();
+                }
 
-            @Override
-            public SeekableByteChannel truncate(long size) throws IOException {
-                return null;
-            }
+                @Override
+                public SeekableByteChannel truncate(long size) {
+                    return this;
+                }
 
-            @Override
-            public boolean isOpen() {
-                return false;
-            }
+                @Override
+                public boolean isOpen() {
+                    return false;
+                }
 
-            @Override
-            public void close() throws IOException {
+                @Override
+                public void close() throws IOException {
+                    if (options.contains(WRITE) || options.contains(APPEND)) {
+                        finalInode.writeLock().unlock();
+                    } else {
+                        finalInode.readLock().unlock();
+                    }
+                    atlant.close();
+                }
+
+            };
+        } catch (IOException | AssertionError e) {
+            atlant.close();
+            if (inode != null) {
                 if (options.contains(WRITE) || options.contains(APPEND)) {
-                    inode.writeLock().unlock();
+                    inode.writeLock().lock();
                 } else {
-                    inode.readLock().unlock();
+                    inode.readLock().lock();
                 }
-                atlant.close();
             }
-
-        };
+            throw e;
+        }
     }
 
     @Override
@@ -292,6 +299,9 @@ public class AtlantFileSystem extends FileSystem {
             return;
         }
         log.finer(() -> "Closing Atlant file system [path=" + path.toAbsolutePath() + "]...");
+        assert AtlantFileChannel.notExists(); // TODO: Can be closed async?
+        blockByteBuffer.remove();
+        inodeByteBuffer.remove();
         isOpen = false;
         provider.removeFileSystem(path);
         log.fine(() -> "Successfully closed Atlant file system [path=" + path.toAbsolutePath() + "]");
@@ -417,8 +427,18 @@ public class AtlantFileSystem extends FileSystem {
         assert channel.isOpen();
         try {
             channel.position(blockPosition(blockId));
-            channel.read(buffer);
+            var read = channel.read(buffer);
+            var blockSize = blockSize();
+            if (read < blockSize) {
+                // if the channel has reached end-of-stream
+                while (buffer.hasRemaining()) {
+                    buffer.put((byte) 0);
+                }
+            }
             buffer.flip();
+            assert buffer.position() == 0 : "Buffer should has zero position, but have [" + buffer.position() + "]";
+            assert buffer.limit() == blockSize : "Buffer should has block size limit [" + blockSize + "], but have [" + buffer.limit() + "]";
+            assert buffer.remaining() == blockSize : "Buffer should has block size remaining [" + blockSize + "], but have [" + buffer.remaining() + "]";
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -484,7 +504,7 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     public AtlantFileAttributes readAttributes(AtlantPath absolutePath, LinkOption[] options) throws IOException {
-        try (var _ = new AtlantFileChannel(path, READ)) {
+        try (var _ = AtlantFileChannel.openForRead(path)) {
             var inode = locate(absolutePath);
             // TODO: Add lock
             return AtlantFileAttributes.from(inode);

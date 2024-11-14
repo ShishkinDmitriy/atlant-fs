@@ -13,24 +13,24 @@ public class LoggingExtension implements BeforeEachCallback, AfterEachCallback {
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        log.info(() -> String.format("Started  %s::%s %s", className(context), methodName(context), testName(context)));
+        log.info(() -> String.format("Started  %s::%s (%s)", className(context), methodName(context), testName(context)));
     }
 
     @Override
     public void afterEach(ExtensionContext context) {
-        log.info(() -> String.format("Finished %s::%s %s", className(context), methodName(context), testName(context)));
+        log.info(() -> String.format("Finished %s::%s (%s)", className(context), methodName(context), testName(context)));
     }
 
     private static String className(ExtensionContext context) {
         return context.getTestClass()
                 .map(Class::getSimpleName)
-                .orElse("");
+                .orElse("default");
     }
 
     private static String methodName(ExtensionContext context) {
         return context.getTestMethod()
                 .map(Method::getName)
-                .orElse("");
+                .orElse("default");
     }
 
     private static String testName(ExtensionContext context) {

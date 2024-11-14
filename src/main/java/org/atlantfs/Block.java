@@ -57,7 +57,9 @@ interface Block {
 
         @Override
         public String toString() {
-            return String.valueOf(value);
+            return "Block.Id{" +
+                    "value=" + value +
+                    '}';
         }
 
     }

@@ -5,19 +5,27 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 class AtlantFileChannel implements AutoCloseable {
 
     private static final ThreadLocal<AtlantFileChannel> registry = new ThreadLocal<>();
+    private static final StandardOpenOption[] READ_OPTIONS = {READ};
+    private static final StandardOpenOption[] WRITE_OPTIONS = {READ, WRITE};
+    private static final StandardOpenOption[] CREATE_OPTIONS = {READ, WRITE, CREATE};
 
     private final boolean main;
     private final Set<OpenOption> options;
     private final SeekableByteChannel channel;
 
-    AtlantFileChannel(Path path, OpenOption... options) throws IOException {
+    private AtlantFileChannel(Path path, OpenOption... options) throws IOException {
         var existing = AtlantFileChannel.registry.get();
         if (existing == null) {
             this.main = true;
@@ -34,6 +42,18 @@ class AtlantFileChannel implements AutoCloseable {
         }
     }
 
+    static AtlantFileChannel openForRead(Path path) throws IOException {
+        return new AtlantFileChannel(path, READ_OPTIONS);
+    }
+
+    static AtlantFileChannel openForWrite(Path path) throws IOException {
+        return new AtlantFileChannel(path, WRITE_OPTIONS);
+    }
+
+    static AtlantFileChannel openForCreate(Path path) throws IOException {
+        return new AtlantFileChannel(path, CREATE_OPTIONS);
+    }
+
     @Override
     public void close() throws IOException {
         if (!main) {
@@ -45,6 +65,10 @@ class AtlantFileChannel implements AutoCloseable {
         assert channel != null;
         channel.close();
         AtlantFileChannel.registry.remove();
+    }
+
+    public static boolean notExists() {
+        return AtlantFileChannel.registry.get() == null;
     }
 
     public static SeekableByteChannel get() {

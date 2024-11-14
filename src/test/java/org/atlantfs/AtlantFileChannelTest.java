@@ -1,44 +1,38 @@
 package org.atlantfs;
 
 import org.atlantfs.util.LoggingExtension;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
-import static java.nio.file.StandardOpenOption.READ;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
+import static org.atlantfs.util.AtlantFileUtil.atlantFile;
 
-@ExtendWith({LoggingExtension.class, MockitoExtension.class})
+@ExtendWith(LoggingExtension.class)
 class AtlantFileChannelTest {
 
-    private static final String ATLANT_FILE_NAME = "build/AtlantChannelTest.atlant";
-    private static final Path ATLANT_FILE = Paths.get(ATLANT_FILE_NAME);
-
-    @BeforeEach
-    void beforeEach() throws IOException {
-        if (!Files.exists(ATLANT_FILE)) {
-            Files.createFile(ATLANT_FILE);
-        }
+    @BeforeAll
+    static void beforeEach(TestInfo testInfo) throws IOException {
+        deleteAllAtlantFiles(testInfo);
     }
 
     @Test
-    void new_should_throwIllegalArgumentException_ifOpenOptionsIncreased(@Mock OpenOption option) throws IOException {
+    void new_should_throwIllegalArgumentException_ifOpenOptionsIncreased(TestInfo testInfo) throws IOException {
         // Given
-        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
+        var atlantFile = atlantFile(testInfo);
+        Files.createFile(atlantFile);
+        try (var _ = AtlantFileChannel.openForRead(atlantFile)) {
             // When Then
             assertThatThrownBy(() -> {
-                try (var _ = new AtlantFileChannel(ATLANT_FILE, READ, option)) {
+                try (var _ = AtlantFileChannel.openForWrite(atlantFile)) {
                     AtlantFileChannel.get();
                 }
             }).isInstanceOf(IllegalArgumentException.class);
@@ -46,10 +40,11 @@ class AtlantFileChannelTest {
     }
 
     @Test
-    void get_should_beOpenInside() throws IOException {
+    void get_should_beOpenInside(TestInfo testInfo) throws IOException {
         // Given
         SeekableByteChannel channel;
-        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
+        var atlantFile = atlantFile(testInfo);
+        try (var _ = AtlantFileChannel.openForCreate(atlantFile)) {
             // When
             channel = AtlantFileChannel.get();
             // Then
@@ -62,16 +57,17 @@ class AtlantFileChannelTest {
     }
 
     @Test
-    void get_should_notBeClosedIfReentrant() throws IOException {
+    void get_should_notBeClosedIfReentrant(TestInfo testInfo) throws IOException {
         // Given
         SeekableByteChannel channel0;
-        try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
+        var atlantFile = atlantFile(testInfo);
+        try (var _ = AtlantFileChannel.openForCreate(atlantFile)) {
             // When
             channel0 = AtlantFileChannel.get();
-            try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
+            try (var _ = AtlantFileChannel.openForRead(atlantFile)) {
                 // When
                 var channel1 = AtlantFileChannel.get();
-                try (var _ = new AtlantFileChannel(ATLANT_FILE, READ)) {
+                try (var _ = AtlantFileChannel.openForRead(atlantFile)) {
                     // When
                     var channel2 = AtlantFileChannel.get();
                     // Then

@@ -70,7 +70,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 if (currentList + 1 < inode.getBlocksCount()) {
                     currentList++;
                     currentIterator = readDirEntryList(resolve(currentList)).iterator();
-                    return true;
+                    return currentIterator.hasNext();
                 }
                 return false;
             }
