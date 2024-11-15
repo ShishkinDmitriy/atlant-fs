@@ -46,4 +46,16 @@ public class PathUtil {
         return actual;
     }
 
+    public static int dirsCount(Path path) throws IOException {
+        final int[] count = {0};
+        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                count[0]++;
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        return count[0];
+    }
+
 }

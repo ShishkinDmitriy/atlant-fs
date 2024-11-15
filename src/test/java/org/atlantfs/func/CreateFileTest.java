@@ -69,7 +69,12 @@ class CreateFileTest {
         // Given
         var collection = new ArrayList<String>();
         var atlantUri = atlantUri(testInfo);
-        var atlantConfig = AtlantConfig.defaults().blockSize(1024).numberOfInodeTables(128);
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(128)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
+                .numberOfInodeBitmaps(2)
+                .numberOfInodeTables(512);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // When
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {

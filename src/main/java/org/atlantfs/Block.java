@@ -1,6 +1,8 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.util.HexFormat;
+import java.util.logging.Logger;
 
 interface Block {
 
@@ -18,6 +20,8 @@ interface Block {
 
     record Id(int value) implements AbstractId {
 
+        private static final Logger log = Logger.getLogger(Block.Id.class.getName());
+
         static final int LENGTH = 4;
 
         static final Id ZERO = new Id(0);
@@ -28,6 +32,17 @@ interface Block {
 
         static Id read(ByteBuffer buffer) {
             var address = buffer.getInt();
+            if (address < 0) {
+                var position = buffer.position();
+                buffer.clear();
+                var array = new byte[buffer.capacity()];
+                for (int i = 0; i < buffer.remaining(); i++) {
+                    array[i] = buffer.get();
+                }
+                buffer.position(position);
+                log.warning(() -> "Received negative block id [address=" + address + ", buffer=" + HexFormat.ofDelimiter(" ").formatHex(array) + "]");
+                throw new RuntimeException();
+            }
             return Id.of(address);
         }
 

@@ -38,5 +38,4 @@ class DataBitmapRegion extends AbstractBitmapRegion<Block.Id, Block.Range> {
         return fileSystem.superBlock().firstBlockOfData();
     }
 
-
 }

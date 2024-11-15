@@ -96,7 +96,7 @@ public class AtlantFileSystem extends FileSystem {
         Inode inode = null;
         try {
             inode = locate(dir, FileType.DIRECTORY);
-            inode.readLock().lock();
+            inode.beginRead();
             Inode finalInode = inode;
             var iterator = finalInode.iterator();
             return new DirectoryStream<>() {
@@ -120,13 +120,13 @@ public class AtlantFileSystem extends FileSystem {
                 @Override
                 public void close() throws IOException {
                     atlant.close();
-                    finalInode.readLock().unlock();
+                    finalInode.endRead();
                 }
             };
         } catch (IOException | AssertionError e) {
             atlant.close();
             if (inode != null) {
-                inode.readLock().unlock();
+                inode.endRead();
             }
             throw e;
         }
@@ -196,9 +196,9 @@ public class AtlantFileSystem extends FileSystem {
         try {
             inode = locate(absolutePath, FileType.REGULAR_FILE, options);
             if (options.contains(WRITE) || options.contains(APPEND)) {
-                inode.writeLock().lock();
+                inode.beginWrite();
             } else {
-                inode.readLock().lock();
+                inode.beginRead();
             }
             Inode finalInode = inode;
             return new SeekableByteChannel() {
@@ -210,12 +210,6 @@ public class AtlantFileSystem extends FileSystem {
                     checkOpen();
                     if (position > finalInode.getSize()) {
                         throw new IOException("EOF reached");
-                    }
-                    var readLock = finalInode.readLock();
-                    try {
-                        readLock.lock();
-                    } finally {
-                        readLock.unlock();
                     }
                     return 0;
                 }
@@ -267,9 +261,9 @@ public class AtlantFileSystem extends FileSystem {
                 @Override
                 public void close() throws IOException {
                     if (options.contains(WRITE) || options.contains(APPEND)) {
-                        finalInode.writeLock().unlock();
+                        finalInode.endWrite();
                     } else {
-                        finalInode.readLock().unlock();
+                        finalInode.endRead();
                     }
                     atlant.close();
                 }
@@ -279,9 +273,9 @@ public class AtlantFileSystem extends FileSystem {
             atlant.close();
             if (inode != null) {
                 if (options.contains(WRITE) || options.contains(APPEND)) {
-                    inode.writeLock().lock();
+                    inode.endWrite();
                 } else {
-                    inode.readLock().lock();
+                    inode.endRead();
                 }
             }
             throw e;
@@ -405,6 +399,13 @@ public class AtlantFileSystem extends FileSystem {
         return reserved;
     }
 
+    List<Block.Range> reserveBlocks(int size) throws BitmapRegionOutOfMemoryException {
+        log.finer(() -> "Reserving [" + size + "] blocks...");
+        var reserved = dataBitmapRegion.reserve(size);
+        log.fine(() -> "Successfully reserved [" + size + "] block [" + reserved + "]");
+        return reserved;
+    }
+
     Inode.Id reserveInode() throws BitmapRegionOutOfMemoryException {
         log.finer(() -> "Reserving 1 inode...");
         var reserved = inodeBitmapRegion.reserve();
@@ -426,7 +427,9 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position(blockPosition(blockId));
+            var blockPosition = blockPosition(blockId);
+            channel.position(blockPosition);
+            log.finer(() -> "Reading from Atlant file [blockId=" + blockId + " (" + blockPosition + "), position=" + blockPosition + "]...");
             var read = channel.read(buffer);
             var blockSize = blockSize();
             if (read < blockSize) {
@@ -461,6 +464,10 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     void writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
+        writeBlock(blockId, 0, consumer);
+    }
+
+    void writeBlock(Block.Id blockId, int offset, Consumer<ByteBuffer> consumer) {
         var buffer = getBlockByteBuffer();
         consumer.accept(buffer);
         buffer.flip();
@@ -468,7 +475,10 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position(blockPosition(blockId));
+            var blockPosition = blockPosition(blockId);
+            var position = blockPosition + offset;
+            log.finer(() -> "Writing into Atlant file [blockId=" + blockId + " (" + blockPosition + "), position=" + position + ", bytes=" + buffer.remaining() + "]...");
+            channel.position(position);
             channel.write(buffer);
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -3,23 +3,27 @@ package org.atlantfs;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 class BlockMapping implements DirectoryOperations, IBlock {
+
+    private static final Logger log = Logger.getLogger(BlockMapping.class.getName());
 
     private final List<Block.Id> addresses;
     private final Inode inode;
 
-    private BlockMapping(Inode inode, List<Block.Id> addresses) {
+    BlockMapping(Inode inode, List<Block.Id> addresses) {
         this.inode = inode;
         this.addresses = addresses;
     }
 
     static BlockMapping read(Inode inode, ByteBuffer buffer) {
-        var numberOfAddresses = numberOfAddresses(inode);
+        var numberOfAddresses = numberOfAddresses(inode.blockSize(), inode.inodeSize(), inode.blocksCount());
         var position = buffer.position();
         assert buffer.remaining() >= numberOfAddresses * Block.Id.LENGTH : "Buffer should have at least [" + numberOfAddresses + "] Block.Id values, but has only [" + buffer.remaining() + "] bytes";
         var blocks = new ArrayList<Block.Id>();
@@ -34,15 +38,6 @@ class BlockMapping implements DirectoryOperations, IBlock {
         var blocks = new ArrayList<Block.Id>();
         blocks.add(blockId);
         return new BlockMapping(inode, blocks);
-    }
-
-    private static int numberOfAddresses(Inode inode) {
-        var blocksCount = inode.getBlocksCount();
-        if (blocksCount <= numberOfDirectBlocks()) {
-            return blocksCount;
-        } else {
-            return blocksCount + indirectLevel(blocksCount - numberOfDirectBlocks(), inode.blockSize());
-        }
     }
 
     @Override
@@ -67,7 +62,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 if (currentHasNext) {
                     return true;
                 }
-                if (currentList + 1 < inode.getBlocksCount()) {
+                if (currentList + 1 < inode.blocksCount()) {
                     currentList++;
                     currentIterator = readDirEntryList(resolve(currentList)).iterator();
                     return currentIterator.hasNext();
@@ -85,7 +80,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public DirEntry add(Inode.Id inodeId, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
-        for (int i = 0; i < inode.getBlocksCount(); i++) {
+        for (int i = 0; i < blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
@@ -96,12 +91,8 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 // continue
             }
         }
-        if (!canGrow()) {
-            throw new DirectoryOutOfMemoryException("Not enough memory to create new Directory");
-        }
-        var reserved = inode.reserveBlock();
-        addresses.add(reserved); // TODO: Handle indirect
-        var dirEntryList = new DirEntryList(inode.blockSize());
+        var reserved = allocate();
+        var dirEntryList = new DirEntryList(blockSize());
         var add = dirEntryList.add(inodeId, fileType, name);
         inode.writeBlock(reserved, dirEntryList::write);
         return add;
@@ -109,7 +100,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public DirEntry get(String name) throws NoSuchFileException {
-        for (int i = 0; i < inode.getBlocksCount(); i++) {
+        for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
@@ -123,7 +114,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
-        for (int i = 0; i < inode.getBlocksCount(); i++) {
+        for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
@@ -138,7 +129,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public void delete(String name) throws NoSuchFileException {
-        for (int i = 0; i < inode.getBlocksCount(); i++) {
+        for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
@@ -152,80 +143,170 @@ class BlockMapping implements DirectoryOperations, IBlock {
     }
 
     Block.Id resolve(int blockNumber) {
-        if (blockNumber < numberOfDirectBlocks()) {
-            return addresses.get(blockNumber);
+        log.finer(() -> "Resolving [blockNumber=" + blockNumber + ", inodeId=" + inode.getId() + ", addresses=" + addresses + "]...");
+        var blocksCount = blocksCount();
+        var inodeSize = inodeSize();
+        var blockSize = blockSize();
+        if (blockNumber >= blocksCount) {
+            throw new IndexOutOfBoundsException("Block number [blockNumber=" + blockNumber + "] is out of bounds [blocksCount=" + blocksCount + "]");
         }
-        blockNumber -= numberOfDirectBlocks();
-        var blockSize = inode.blockSize();
-        var level = indirectLevel(blockNumber, blockSize);
-        assert addresses.size() >= numberOfDirectBlocks() + level;
-        var blockId = addresses.get(numberOfDirectBlocks() + level - 1);
-        for (var offset : indirectOffsets(level, blockNumber, blockSize)) {
+        var numberOfDirectBlocks = numberOfDirectBlocks(inodeSize);
+        if (blockNumber < numberOfDirectBlocks) {
+            var blockId = addresses.get(blockNumber);
+            log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + blockId + "] by direct");
+            return blockId;
+        }
+        var level = addressLevel(blockSize, inodeSize, blockNumber);
+        var offsets = addressOffsets(blockSize, inodeSize, blockNumber);
+        assert addresses.size() >= numberOfDirectBlocks + level;
+        var blockId = addresses.get(numberOfDirectBlocks - 1 + level);
+        for (var offset : offsets) {
             blockId = readBlockId(blockId, offset);
         }
+        Block.Id finalBlockId = blockId;
+        log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + finalBlockId + "] by [" + level + "] level indirect");
         return blockId;
     }
 
-    void allocate() {
-        var blockNumber = inode.getBlocksCount() + 1;
-        if (blockNumber >= numberOfDirectBlocks()) {
-            blockNumber -= numberOfDirectBlocks();
-            var level = indirectLevel(blockNumber, inode.blockSize());
-            var offsets = indirectOffsets(level, blockNumber, inode.blockSize());
-            for (var i = 0; i < offsets.size(); i++) {
-                var last = offsets.pollLast();
-//                if () {
-//
-//                }
-            }
+    Block.Id allocate() throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+        checkInvariant();
+        var blockSize = blockSize();
+        var inodeSize = inodeSize();
+        var blocksCount = blocksCount();
+        log.finer(() -> "Allocating new block [blockNumber=" + blocksCount + ", inodeId=" + inode.getId() + ", addresses=" + addresses + "]...");
+        if (!canGrow(blockSize, inodeSize, blocksCount)) {
+            throw new DirectoryOutOfMemoryException("Not enough memory to allocate new block");
         }
-    }
-
-    Block.Id readBlockId(Block.Id blockId, int offset) {
-        var buffer = inode.readBlock(blockId);
-        buffer.position(offset);
-        return Block.Id.read(buffer);
-    }
-
-    static int indirectLevel(long blockNumber, int blockSize) {
-        var idsPerBlock = idsPerBlock(blockSize);
-        int i = 0;
-        while (blockNumber >= 0) {
-            i++;
-            blockNumber -= (int) Math.pow(idsPerBlock, i);
+        var numberOfDirectBlocks = numberOfDirectBlocks(inodeSize);
+        var offsets = addressOffsets(blockSize, inodeSize, blocksCount);
+        var newIndirectBlocksCount = numberOfTrailingZeros(offsets);
+        var reserved = inode.reserveBlocks(newIndirectBlocksCount + 1);
+        var ids = flat(reserved);
+        for (int i = ids.size() - 2; i >= 0; i--) {
+            writeBlockId(ids.get(i), 0, ids.get(i + 1));
         }
-        return i;
+        var result = ids.getLast();
+        if (offsets.size() == newIndirectBlocksCount) {
+            addresses.add(ids.getFirst());
+            log.fine(() -> "Successfully allocated [blockNumber=" + blocksCount + ", blockId=" + result + "] by [" + offsets.size() + "] level indirect");
+            return result;
+        }
+        var current = addresses.get(numberOfDirectBlocks + offsets.size() - 1);
+        for (int i = 0; i < offsets.size() - newIndirectBlocksCount - 1; i++) {
+            current = readBlockId(current, offsets.get(i));
+        }
+        writeBlockId(current, offsets.getLast(), result);
+        checkInvariant();
+        return result;
     }
 
-    static Deque<Integer> indirectOffsets(int level, int blockNumber, int blockSize) {
-        var result = new LinkedList<Integer>();
-        var current = blockNumber;
-        for (int i = 0; i < level; i++) {
-            result.addFirst(current % idsPerBlock(blockSize));
-            current /= idsPerBlock(blockSize);
+    private static int numberOfTrailingZeros(List<Integer> offsets) {
+        var result = 0;
+        var cursor = offsets.size() - 1;
+        while (cursor >= 0 && offsets.get(cursor) == 0) {
+            result++;
+            cursor--;
         }
         return result;
     }
 
-    private DirEntryList readDirEntryList(Block.Id blockId) {
+    List<Block.Id> flat(List<Block.Range> ranges) {
+        return ranges.stream()
+                .flatMap(range -> IntStream.range(0, range.length())
+                        .mapToObj(i -> range.from().plus(i)))
+                .toList();
+    }
+
+    Block.Id readBlockId(Block.Id blockId, int offset) {
+        log.fine(() -> "Reading from [blockId=" + blockId + ", offset=" + offset + "]...");
+        var buffer = inode.readBlock(blockId);
+        buffer.position(offset * Block.Id.LENGTH);
+        return Block.Id.read(buffer);
+    }
+
+    void writeBlockId(Block.Id blockId, int offset, Block.Id value) {
+        log.fine(() -> "Writing into [blockId=" + blockId + ", offset=" + offset + ", value=" + value + "]...");
+        inode.writeBlock(blockId, offset * Block.Id.LENGTH, value::write);
+    }
+
+    DirEntryList readDirEntryList(Block.Id blockId) {
         var buffer = inode.readBlock(blockId);
         return DirEntryList.read(buffer);
     }
 
-    private boolean canGrow() {
-        return inode.getBlocksCount() < numberOfDirectBlocks() + (long) getIndirectBlocks() * inode.blockSize();
+    private int blockSize() {
+        return inode.blockSize();
     }
 
-    static int numberOfDirectBlocks() {
-        return 7;
+    private int inodeSize() {
+        return inode.inodeSize();
     }
 
-    static int getIndirectBlocks() {
-        return 1;
+    private int blocksCount() {
+        return inode.blocksCount();
     }
 
-    static int idsPerBlock(int blockSize) {
+    private void checkInvariant() {
+        assert addresses.size() == numberOfAddresses(blockSize(), inodeSize(), blocksCount());
+    }
+
+    static int addressLevel(int blockSize, int inodeSize, long blockNumber) {
+        var numberOfDirectBlocks = numberOfDirectBlocks(inodeSize);
+        if (blockNumber < numberOfDirectBlocks) {
+            return 0;
+        }
+        blockNumber -= numberOfDirectBlocks;
+        var numberOfIdsPerBlock = numberOfIdsPerBlock(blockSize);
+        int result = 0;
+        do {
+            result++;
+            blockNumber -= (int) Math.pow(numberOfIdsPerBlock, result);
+        } while (blockNumber >= 0);
+        return result;
+    }
+
+    static List<Integer> addressOffsets(int blockSize, int inodeSize, int blockNumber) {
+        var level = addressLevel(blockSize, inodeSize, blockNumber);
+        if (level == 0) {
+            return new LinkedList<>();
+        }
+        blockNumber -= numberOfDirectBlocks(inodeSize);
+        var numberOfIdsPerBlock = numberOfIdsPerBlock(blockSize);
+        for (int i = 1; i < level; i++) {
+            blockNumber -= (int) Math.pow(numberOfIdsPerBlock, i);
+        }
+        var result = new LinkedList<Integer>();
+        for (int i = 0; i < level; i++) {
+            result.addFirst(blockNumber % numberOfIdsPerBlock);
+            blockNumber /= numberOfIdsPerBlock;
+        }
+        return result;
+    }
+
+    static boolean canGrow(int blockSize, int inodeSize, int blocksCount) {
+        var futureNumberOfAddresses = numberOfAddresses(blockSize, inodeSize, blocksCount + 1);
+        var maxNumberOfAddresses = numberOfDirectBlocks(inodeSize) + numberOfIndirectLevels();
+        return futureNumberOfAddresses <= maxNumberOfAddresses;
+    }
+
+    static int numberOfAddresses(int blockSize, int inodeSize, int blocksCount) {
+        return Math.min(blocksCount, numberOfDirectBlocks(inodeSize)) + addressLevel(blockSize, inodeSize, blocksCount - 1);
+    }
+
+    static int numberOfDirectBlocks(int inodeSize) {
+        return Inode.iBlockLength(inodeSize) / Block.Id.LENGTH - numberOfIndirectLevels();
+    }
+
+    static int numberOfIdsPerBlock(int blockSize) {
         return blockSize / Block.Id.LENGTH;
+    }
+
+    static int numberOfIndirectLevels() {
+        return 3;
+    }
+
+    List<Block.Id> getAddresses() {
+        return Collections.unmodifiableList(addresses);
     }
 
 }

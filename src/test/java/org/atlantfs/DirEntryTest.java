@@ -121,7 +121,7 @@ class DirEntryTest {
 
     //region DirEntry::init
     @Test
-    void init_should_setNewValues() {
+    void init_should_setNewValues() throws DirectoryOutOfMemoryException {
         // Given
         short length = (short) 4096;
         var entry = DirEntry.empty(length);

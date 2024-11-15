@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -80,7 +81,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     void write(ByteBuffer buffer) {
-        assert buffer.remaining() == fileSystem.inodeSize();
+        assert buffer.remaining() == inodeSize();
         buffer.putLong(size);
         buffer.putInt(blocksCount);
         iBlockType.write(buffer);
@@ -183,6 +184,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     private <T> T upgradeAndAdd(Function<DirectoryOperations, T> func) throws BitmapRegionOutOfMemoryException {
+        log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
         assert iBlockType == IBlockType.INLINE_DIR_LIST;
         var blockSize = blockSize();
         var dirEntryList = (DirEntryList) iBlock;
@@ -190,7 +192,7 @@ class Inode implements FileOperations, DirectoryOperations {
         var dirEntry = func.apply(dirEntryList);
         var reserved = reserveBlock();
         size = (long) blocksCount * blockSize;
-        fileSystem.writeBlock(reserved, dirEntryList::write);
+        writeBlock(reserved, dirEntryList::write);
         iBlock = BlockMapping.init(this, reserved);
         iBlockType = IBlockType.DIR_LIST;
         dirty = true;
@@ -204,6 +206,12 @@ class Inode implements FileOperations, DirectoryOperations {
         return reserved;
     }
 
+    protected List<Block.Range> reserveBlocks(int size) throws BitmapRegionOutOfMemoryException {
+        var reserved = fileSystem.reserveBlocks(size);
+        blocksCount += reserved.size();
+        return reserved;
+    }
+
     private DirectoryOperations directoryOperations() {
         ensureDirectory();
         return (DirectoryOperations) iBlock;
@@ -214,24 +222,28 @@ class Inode implements FileOperations, DirectoryOperations {
         return (FileOperations) iBlock;
     }
 
-    private void beginRead() {
-        readLock().lock();
+    void beginRead() {
+        lock.readLock().lock();
     }
 
-    private void endRead() {
-        readLock().unlock();
+    void endRead() {
+        lock.readLock().unlock();
     }
 
-    private void beginWrite() {
-        writeLock().lock();
+    void beginWrite() {
+        lock.writeLock().lock();
     }
 
-    private void endWrite() {
-        writeLock().unlock();
+    void endWrite() {
+        lock.writeLock().unlock();
     }
 
     void writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
-        fileSystem.writeBlock(blockId, consumer);
+        writeBlock(blockId, 0, consumer);
+    }
+
+    void writeBlock(Block.Id blockId, int offset, Consumer<ByteBuffer> consumer) {
+        fileSystem.writeBlock(blockId, offset, consumer);
     }
 
     ByteBuffer readBlock(Block.Id blockId) {
@@ -259,6 +271,10 @@ class Inode implements FileOperations, DirectoryOperations {
         return fileSystem.blockSize();
     }
 
+    int inodeSize() {
+        return fileSystem.inodeSize();
+    }
+
     static int iBlockLength(int inodeSize) {
         return inodeSize - MIN_LENGTH;
     }
@@ -271,16 +287,8 @@ class Inode implements FileOperations, DirectoryOperations {
         return fileSystem;
     }
 
-    public int getBlocksCount() {
+    public int blocksCount() {
         return blocksCount;
-    }
-
-    public ReentrantReadWriteLock.ReadLock readLock() {
-        return lock.readLock();
-    }
-
-    public ReentrantReadWriteLock.WriteLock writeLock() {
-        return lock.writeLock();
     }
 
     public FileType getFileType() {

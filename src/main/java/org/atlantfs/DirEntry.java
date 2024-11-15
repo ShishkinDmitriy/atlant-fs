@@ -251,9 +251,12 @@ class DirEntry {
         checkInvariant();
     }
 
-    void init(Inode.Id anotherInode, FileType anotherFileType, String anotherName) {
+    void init(Inode.Id anotherInode, FileType anotherFileType, String anotherName) throws DirEntryListOfMemoryException {
         if (!isEmpty()) {
             throw new IllegalStateException("Dir entry already initialized");
+        }
+        if (length < aligned(anotherName)) {
+            throw new DirEntryListOfMemoryException("Directory name [name=" + name + "] doesn't fit into [" + aligned(name) + "] bytes");
         }
         inode = anotherInode;
         fileType = anotherFileType;

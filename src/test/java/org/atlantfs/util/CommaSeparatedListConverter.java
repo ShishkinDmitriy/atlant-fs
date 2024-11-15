@@ -6,13 +6,14 @@ import org.junit.jupiter.params.converter.ArgumentConverter;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
+import java.util.Collections;
 
 public class CommaSeparatedListConverter implements ArgumentConverter {
 
     @Override
     public final Object convert(Object source, ParameterContext context) throws ArgumentConversionException {
         if (source == null) {
-            return null;
+            return Collections.emptyList();
         }
         Class<?> generic = (Class<?>) ((ParameterizedType) context.getParameter().getParameterizedType()).getActualTypeArguments()[0];
         String[] split = source.toString().split(",");

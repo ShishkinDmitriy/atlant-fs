@@ -147,9 +147,11 @@ class CreateDirectoryTest {
         var collection = new ArrayList<String>();
         var atlantUri = atlantUri(testInfo);
         var atlantConfig = AtlantConfig.defaults()
-                .blockSize(1024)
+                .blockSize(128)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
                 .numberOfInodeBitmaps(1)
-                .numberOfInodeTables(32);
+                .numberOfInodeTables(82);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // When
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {

@@ -192,7 +192,7 @@ class BitmapTest {
         private final RangeConverter rangeConverter = new RangeConverter();
 
         @Override
-        public final Object convert(Object source, ParameterContext context) throws ArgumentConversionException {
+        public final List<Bitmap.Range> convert(Object source, ParameterContext context) throws ArgumentConversionException {
             if (source == null) {
                 return null;
             }
@@ -207,7 +207,7 @@ class BitmapTest {
     private static class RangeConverter implements ArgumentConverter {
 
         @Override
-        public final Object convert(Object source, ParameterContext context) throws ArgumentConversionException {
+        public final Bitmap.Range convert(Object source, ParameterContext context) throws ArgumentConversionException {
             if (source == null) {
                 return null;
             }
