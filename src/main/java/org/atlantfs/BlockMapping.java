@@ -10,12 +10,21 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
+/**
+ * Cache impact (org.atlantfs.func.CreateFileTest#soapOpera(org.junit.jupiter.api.TestInfo):
+ * <pre>
+ * Cache.NoOp -> Statistics: [readCalls=77774, readBytes=9955072, writeCalls=5202, writeBytes=305910]
+ * Cache      -> Statistics: [readCalls=300, readBytes=38400, writeCalls=5190, writeBytes=305268]
+ * </pre>
+ */
 class BlockMapping implements DirectoryOperations, IBlock {
 
     private static final Logger log = Logger.getLogger(BlockMapping.class.getName());
 
     private final List<Block.Id> addresses;
     private final Inode inode;
+    private final Cache<Coordinates, Block.Id> indirectBlocksCache = new Cache<>();
+    private final Cache<Block.Id, DirEntryList> dirEntryListsCache = new Cache<>();
 
     BlockMapping(Inode inode, List<Block.Id> addresses) {
         this.inode = inode;
@@ -85,7 +94,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
                 var add = entryList.add(inodeId, fileType, name);
-                inode.writeBlock(blockId, entryList::write);
+                writeDirEntryList(blockId, entryList);
                 return add;
             } catch (DirectoryOutOfMemoryException _) {
                 // continue
@@ -94,7 +103,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
         var reserved = allocate();
         var dirEntryList = new DirEntryList(blockSize());
         var add = dirEntryList.add(inodeId, fileType, name);
-        inode.writeBlock(reserved, dirEntryList::write);
+        writeDirEntryList(reserved, dirEntryList);
         return add;
     }
 
@@ -119,7 +128,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
                 entryList.rename(name, newName);
-                inode.writeBlock(blockId, entryList::write);
+                writeDirEntryList(blockId, entryList);
             } catch (NoSuchFileException _) {
                 // continue
             }
@@ -134,7 +143,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
                 var blockId = resolve(i);
                 var entryList = readDirEntryList(blockId);
                 entryList.delete(name);
-                inode.writeBlock(blockId, entryList::write);
+                writeDirEntryList(blockId, entryList);
             } catch (NoSuchFileException _) {
                 // continue
             }
@@ -218,20 +227,34 @@ class BlockMapping implements DirectoryOperations, IBlock {
     }
 
     Block.Id readBlockId(Block.Id blockId, int offset) {
-        log.fine(() -> "Reading from [blockId=" + blockId + ", offset=" + offset + "]...");
-        var buffer = inode.readBlock(blockId);
-        buffer.position(offset * Block.Id.LENGTH);
-        return Block.Id.read(buffer);
+        return readBlockId(Coordinates.of(blockId, offset));
+    }
+
+    Block.Id readBlockId(Coordinates coordinates) {
+        return indirectBlocksCache.computeIfAbsent(coordinates, key -> {
+            log.fine(() -> "Reading from [coordinates=" + key + "]...");
+            var buffer = inode.readBlock(key.blockId);
+            buffer.position(key.offset * Block.Id.LENGTH);
+            return Block.Id.read(buffer);
+        });
     }
 
     void writeBlockId(Block.Id blockId, int offset, Block.Id value) {
         log.fine(() -> "Writing into [blockId=" + blockId + ", offset=" + offset + ", value=" + value + "]...");
         inode.writeBlock(blockId, offset * Block.Id.LENGTH, value::write);
+        indirectBlocksCache.put(Coordinates.of(blockId, offset), value);
     }
 
     DirEntryList readDirEntryList(Block.Id blockId) {
-        var buffer = inode.readBlock(blockId);
-        return DirEntryList.read(buffer);
+        return dirEntryListsCache.computeIfAbsent(blockId, key -> {
+            var buffer = inode.readBlock(key);
+            return DirEntryList.read(buffer);
+        });
+    }
+
+    private void writeDirEntryList(Block.Id reserved, DirEntryList dirEntryList) {
+        inode.writeBlock(reserved, dirEntryList::write);
+        dirEntryListsCache.put(reserved, dirEntryList);
     }
 
     private int blockSize() {
@@ -307,6 +330,21 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     List<Block.Id> getAddresses() {
         return Collections.unmodifiableList(addresses);
+    }
+
+    record Coordinates(Block.Id blockId, int offset) {
+
+        static Coordinates of(Block.Id blockId, int offset) {
+            return new Coordinates(blockId, offset);
+        }
+
+        @Override
+        public String toString() {
+            return "Coordinates{" +
+                    "blockId=" + blockId +
+                    ", offset=" + offset +
+                    '}';
+        }
     }
 
 }

@@ -29,13 +29,13 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
      */
     private final List<DirEntry> entries;
 
-    public DirEntryList(int length, List<DirEntry> entries) {
+    DirEntryList(int length, List<DirEntry> entries) {
         this.length = length;
         this.entries = entries;
         checkInvariant();
     }
 
-    public DirEntryList(int length) {
+    DirEntryList(int length) {
         List<DirEntry> entries = new ArrayList<>();
         entries.add(DirEntry.empty((short) length));
         this.length = length;
