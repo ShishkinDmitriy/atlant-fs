@@ -38,7 +38,12 @@ class CreateFileTest {
     void createFile_should_createEmptyFile(TestInfo testInfo) throws IOException {
         // Given
         var atlantUri = atlantUri(testInfo);
-        var atlantConfig = AtlantConfig.defaults();
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(64)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
+                .numberOfInodeBitmaps(1)
+                .numberOfInodeTables(1);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var path = fileSystem.getPath("/file.txt");
             // When
@@ -53,7 +58,12 @@ class CreateFileTest {
     void createFile_should_throwFileAlreadyExistsException_when_fileAlreadyExists(TestInfo testInfo) throws IOException {
         // Given
         var atlantUri = atlantUri(testInfo);
-        var atlantConfig = AtlantConfig.defaults();
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(64)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
+                .numberOfInodeBitmaps(1)
+                .numberOfInodeTables(1);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var path = fileSystem.getPath("/file.txt");
             // When

@@ -40,7 +40,12 @@ class CreateDirectoryTest {
         // Given
         var dirsCount = 3;
         var atlantUri = atlantUri(testInfo);
-        var atlantConfig = AtlantConfig.defaults();
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(64)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
+                .numberOfInodeBitmaps(1)
+                .numberOfInodeTables(2);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var root = fileSystem.getPath("/");
             var path = root;
@@ -105,7 +110,12 @@ class CreateDirectoryTest {
         // Given
         var dirsCount = 3;
         var atlantUri = atlantUri(testInfo);
-        var atlantConfig = AtlantConfig.defaults();
+        var atlantConfig = AtlantConfig.defaults()
+                .blockSize(64)
+                .inodeSize(32)
+                .numberOfBlockBitmaps(1)
+                .numberOfInodeBitmaps(1)
+                .numberOfInodeTables(2);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             var paths = new ArrayList<Path>();
             for (int i = 0; i < dirsCount; i++) {
@@ -151,7 +161,7 @@ class CreateDirectoryTest {
                 .inodeSize(32)
                 .numberOfBlockBitmaps(1)
                 .numberOfInodeBitmaps(1)
-                .numberOfInodeTables(82);
+                .numberOfInodeTables(95);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // When
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {

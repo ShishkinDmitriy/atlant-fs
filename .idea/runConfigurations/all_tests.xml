@@ -10,9 +10,10 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":test" />
+          <option value=":check" />
         </list>
       </option>
+      <option name="vmOptions" />
     </ExternalSystemSettings>
     <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
     <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
