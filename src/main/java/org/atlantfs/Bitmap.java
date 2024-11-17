@@ -17,6 +17,8 @@ class Bitmap {
     private final BitSet bitset;
     private final int length;
     private final ReentrantLock lock = new ReentrantLock();
+    private int dirtyMin = Integer.MAX_VALUE;
+    private int dirtyMax = Integer.MIN_VALUE;
     private boolean dirty;
 
     Bitmap(Block.Id blockId, BitSet bitset, int length) {
@@ -36,8 +38,12 @@ class Bitmap {
         if (remaining < length) {
             throw new IllegalArgumentException("Buffer size [" + remaining + "] mismatch with bitmap size [" + length + "]");
         }
-        dirty = false;
         buffer.put(bitset.toByteArray());
+        var written = remaining - buffer.remaining();
+        for (var i = written; i <= (dirtyMax / 8); i++) { // In case of setting free it shrinks, need to write manually
+            buffer.put((byte) 0);
+        }
+        resetDirty();
         checkInvariant();
     }
 
@@ -50,7 +56,7 @@ class Bitmap {
         }
         log.finer(() -> "Next clear bit is [" + bit + "]");
         bitset.set(bit);
-        dirty = true;
+        markDirty(bit);
         checkInvariant();
         return bit;
     }
@@ -83,24 +89,27 @@ class Bitmap {
             currentIndex = clearBit + range.length;
         }
         log.fine(() -> "Successfully found [ranges=" + ranges.size() + "] of total [blocks=" + ranges.stream().mapToInt(Range::length).sum() + "]...");
-        dirty = true;
+        ranges.forEach(this::markDirty);
         checkInvariant();
         return ranges;
     }
 
     boolean free(int position) {
+        log.finer(() -> "Setting free [position=" + position + "] bit...");
         if (!bitset.get(position)) {
+            log.fine(() -> "Bit [position=" + position + "] already unset");
             return false;
         }
         bitset.set(position, false);
-        dirty = true;
+        markDirty(position);
         checkInvariant();
+        log.fine(() -> "Successfully set free [position=" + position + "] bit");
         return true;
     }
 
     void free(Range range) {
         bitset.set(range.from, range.from + range.length, false);
-        dirty = true;
+        markDirty(range);
         checkInvariant();
     }
 
@@ -112,6 +121,24 @@ class Bitmap {
     void unlock() {
         log.fine(() -> "Unlocking bitmap [blockId=" + blockId + "]...");
         this.lock.unlock();
+    }
+
+    private void resetDirty() {
+        dirtyMin = Integer.MAX_VALUE;
+        dirtyMax = Integer.MIN_VALUE;
+        dirty = false;
+    }
+
+    private void markDirty(int bit) {
+        dirtyMin = Math.min(dirtyMin, bit);
+        dirtyMax = Math.max(dirtyMax, bit);
+        dirty = true;
+    }
+
+    private void markDirty(Range range) {
+        dirtyMin = Math.min(dirtyMin, range.from);
+        dirtyMax = Math.max(dirtyMax, range.from + range.length - 1);
+        dirty = true;
     }
 
     private void checkInvariant() {

@@ -178,7 +178,10 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
                     var bitmap = loadBitmap(bitmapNumber);
                     try {
                         bitmap.lock();
-                        localIds.forEach(id -> bitmap.free(toBitmapOffset(id)));
+                        localIds.forEach(id -> {
+                            var bitmapOffset = toBitmapOffset(id);
+                            bitmap.free(bitmapOffset);
+                        });
                         markAsVacant(bitmapNumber);
                         checkInvariant();
                         write(bitmapNumber, bitmap);
@@ -241,13 +244,9 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
         current.updateAndGet(v -> Math.min(bitmapNumber, v));
     }
 
-    int toBitmapNumber(K id) {
-        return id.value() / (blockSize() * 8);
-    }
+    abstract int toBitmapNumber(K id);
 
-    int toBitmapOffset(K id) {
-        return id.value() % (blockSize() * 8);
-    }
+    abstract int toBitmapOffset(K id);
 
     private List<R> applyOffset(int bitmapNumber, List<Bitmap.Range> ranges) {
         return ranges.stream()

@@ -1,6 +1,7 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.List;
@@ -152,6 +153,21 @@ class Inode implements FileOperations, DirectoryOperations {
             beginWrite();
             directoryOperations().delete(name);
             flush();
+        } finally {
+            endWrite();
+        }
+    }
+
+    @Override
+    public void delete() throws DirectoryNotEmptyException {
+        try {
+            beginWrite();
+            if (isDirectory()) {
+                ((DirectoryOperations) iBlock).delete();
+            } else if (isRegularFile()) {
+                ((FileOperations) iBlock).delete();
+            }
+            fileSystem.freeInode(id);
         } finally {
             endWrite();
         }

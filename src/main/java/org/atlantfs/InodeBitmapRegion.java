@@ -34,4 +34,14 @@ class InodeBitmapRegion extends AbstractBitmapRegion<Inode.Id, Inode.Range> {
         return fileSystem.superBlock().blockSize();
     }
 
+    @Override
+    int toBitmapNumber(Inode.Id id) {
+        return id.value() / (blockSize() * 8);
+    }
+
+    @Override
+    int toBitmapOffset(Inode.Id id) {
+        return (id.value() - 1) % (blockSize() * 8);
+    }
+
 }

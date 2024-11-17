@@ -286,6 +286,22 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
+    void delete(AtlantPath absolutePath) throws IOException {
+        try (var _ = AtlantFileChannel.openForWrite(path)) {
+            Inode parent = locate((AtlantPath) absolutePath.getParent(), FileType.DIRECTORY);
+            try {
+                parent.beginWrite();
+                var fileName = absolutePath.getFileName().toString();
+                var dirEntry = parent.get(fileName);
+                Inode inode = inodeTableRegion.get(dirEntry.getInode());
+                inode.delete();
+                parent.delete(fileName);
+            } finally {
+                parent.endWrite();
+            }
+        }
+    }
+
     @Override
     public FileSystemProvider provider() {
         return provider;
@@ -420,6 +436,10 @@ public class AtlantFileSystem extends FileSystem {
 
     void freeBlock(Block.Id inodeId) {
         dataBitmapRegion.free(inodeId);
+    }
+
+    void freeBlocks(List<Block.Id> inodeIds) {
+        dataBitmapRegion.free(inodeIds);
     }
 
     void freeInode(Inode.Id inodeId) {

@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
@@ -22,5 +23,7 @@ interface DirectoryOperations {
     void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException;
 
     void delete(String name) throws NoSuchFileException;
+
+    void delete() throws DirectoryNotEmptyException;
 
 }

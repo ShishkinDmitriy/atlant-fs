@@ -1,6 +1,7 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
@@ -53,6 +54,11 @@ class DirTree implements DirectoryOperations, IBlock {
     @Override
     public void delete(String name) throws NoSuchFileException {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void delete() throws DirectoryNotEmptyException {
+
     }
 
 }

@@ -113,7 +113,13 @@ public class AtlantFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void delete(Path path) throws IOException {
-
+        if (!(path instanceof AtlantPath atlantPath)) {
+            throw new ProviderMismatchException();
+        }
+        if (!atlantPath.isAbsolute()) {
+            atlantPath = atlantPath.toAbsolutePath();
+        }
+        atlantPath.getFileSystem().delete(atlantPath);
     }
 
     @Override

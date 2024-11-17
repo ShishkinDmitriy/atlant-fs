@@ -71,6 +71,16 @@ class AbstractBitmapRegionTest {
             }
 
             @Override
+            int toBitmapNumber(Id id) {
+                return id.value() / (blockSize() * 8);
+            }
+
+            @Override
+            int toBitmapOffset(Id id) {
+                return id.value() % (blockSize() * 8);
+            }
+
+            @Override
             Range applyOffset(int bitmapNumber, Bitmap.Range range) {
                 return new Range(applyOffset(bitmapNumber, range.from()), range.length());
             }

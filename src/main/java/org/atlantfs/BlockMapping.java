@@ -1,12 +1,14 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
@@ -170,13 +172,96 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
     }
 
     @Override
+    public void delete() throws DirectoryNotEmptyException {
+        var indirectIds = new ArrayList<Block.Id>();
+        var dataIds = new ArrayList<Block.Id>();
+        var blockSize = blockSize();
+        var inodeSize = inodeSize();
+        var numberOfDirectBlocks = numberOfDirectBlocks(inodeSize);
+        for (int i = 0; i < Math.min(numberOfDirectBlocks, addresses.size()); i++) {
+            dataIds.add(addresses.get(i));
+        }
+        var lastExistingPosition = inode.getSize() - 1;
+        var lastExistingBlockNumber = (int) lastExistingPosition / blockSize;
+        var offsets = addressOffsets(blockSize, inodeSize, lastExistingBlockNumber);
+        for (int level = 1; level <= offsets.size(); level++) { // Over all existing indirect levels
+            var root = addresses.get(numberOfDirectBlocks + level - 1);
+            indirectIds.add(root);
+            var offsetsOrFull = getOffsetsOrFull(offsets, level, blockSize);
+            Queue<Block.Id> input = new LinkedList<>();
+            Queue<Block.Id> output = new LinkedList<>();
+            input.add(root);
+            for (int depth = 0; depth < level; depth++) {
+                while (!input.isEmpty()) {
+                    var id = input.poll();
+                    var count1 = input.isEmpty() ? offsetsOrFull.get(depth) + 1 : numberOfIdsPerBlock(blockSize); // If the last id then read not whole block
+                    var buffer = inode.getFileSystem().readBlock(id);
+                    for (int i = 0; i < count1; i++) {
+                        var read = Block.Id.read(buffer);
+                        output.offer(read);
+                    }
+                }
+                if (depth == level - 1) {
+                    dataIds.addAll(output);
+                } else {
+                    indirectIds.addAll(output);
+                }
+                // Now output become input and empty input become output
+                var i = input;
+                input = output;
+                output = i;
+            }
+        }
+        if (inode.isDirectory()) {
+            for (var blockId : dataIds) {
+                var entryList = readDirEntryList(blockId);
+                if (!entryList.isEmpty()) {
+                    throw new DirectoryNotEmptyException("Directory is not empty");
+                }
+            }
+        }
+        var ids = new ArrayList<Block.Id>();
+        ids.addAll(indirectIds);
+        ids.addAll(dataIds);
+        inode.getFileSystem().freeBlocks(ids);
+    }
+
+    /**
+     * Represent occupied indexes on different levels.
+     * <p>
+     * Given offsets [0, 12, 15] and block size of 64 (16 ids per block)
+     * should return:
+     * <pre>
+     * 0 -> []
+     * 1 -> [15]
+     * 2 -> [15, 15]
+     * 3 -> [0, 12, 15]
+     * </pre>
+     *
+     * @param offsets   list of numbers representing an offset on depth of tree
+     * @param level     the level
+     * @param blockSize the number of bytes per block
+     * @return offsets list
+     */
+    private static List<Integer> getOffsetsOrFull(List<Integer> offsets, int level, int blockSize) {
+        assert level > 0;
+        assert level <= offsets.size();
+        if (level == offsets.size()) {
+            return offsets;
+        }
+        return IntStream.range(0, level)
+                .mapToObj(_ -> numberOfIdsPerBlock(blockSize) - 1)
+                .toList();
+    }
+
+    @Override
     public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
         var blockSize = blockSize();
         var lastExistingBlockNumber = -1;
         Block.Id lastExistingBlockId = null;
         if (inode.getSize() > 0) {
             var lastExistingPosition = inode.getSize() - 1;
-            lastExistingBlockNumber = lastExistingPosition < 0 ? -1 : (int) lastExistingPosition / blockSize;
+            lastExistingBlockNumber = (int) lastExistingPosition / blockSize;
             lastExistingBlockId = resolve(lastExistingBlockNumber);
             var firstRequiredBlockNumber = (int) ((position + buffer.position()) / blockSize);
             if (lastExistingBlockNumber == firstRequiredBlockNumber) {

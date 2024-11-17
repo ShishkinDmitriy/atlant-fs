@@ -20,6 +20,16 @@ class DataBitmapRegion extends AbstractBitmapRegion<Block.Id, Block.Range> {
     }
 
     @Override
+    int toBitmapNumber(Block.Id id) {
+        return id.minus(firstBlockOfData()).value() / (blockSize() * 8);
+    }
+
+    @Override
+    int toBitmapOffset(Block.Id id) {
+        return id.minus(firstBlockOfData()).value() % (blockSize() * 8);
+    }
+
+    @Override
     public Block.Id firstBlock() {
         return fileSystem.superBlock().firstBlockOfBlockBitmap();
     }

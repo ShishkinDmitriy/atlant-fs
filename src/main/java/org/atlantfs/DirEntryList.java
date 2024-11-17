@@ -1,6 +1,7 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -124,6 +125,11 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         log.finer(() -> "Found entry to delete [index=" + index + "]");
         delete(index);
         checkInvariant();
+    }
+
+    @Override
+    public void delete() throws DirectoryNotEmptyException {
+
     }
 
     void delete(int index) {

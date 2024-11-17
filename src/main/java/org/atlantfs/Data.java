@@ -1,6 +1,7 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryNotEmptyException;
 
 class Data implements IBlock, FileOperations {
 
@@ -30,7 +31,7 @@ class Data implements IBlock, FileOperations {
     @Override
     public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException, DataOutOfMemoryException {
         var targetLength = position + buffer.remaining();
-        if (targetLength >= length) {
+        if (targetLength > data.length) {
             throw new DataOutOfMemoryException();
         }
         var i = 0;
@@ -51,6 +52,11 @@ class Data implements IBlock, FileOperations {
             buffer.put(data[(int) (position + i)]);
         }
         return bound;
+    }
+
+    @Override
+    public void delete() throws DirectoryNotEmptyException {
+
     }
 
     boolean hasData() {
