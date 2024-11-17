@@ -169,7 +169,7 @@ class AbstractBitmapRegionTest {
                 .filter(i -> i % 8 == 0)
                 .mapToObj(i -> new Range(new Id(i), 2))
                 .toList();
-        bitmapRegion.free(ranges);
+        bitmapRegion.freeRanges(ranges);
         // Then
         assertThat(toHex(blocks)).isEqualTo("fcfc fcfc fcfc fcfc");
         // When

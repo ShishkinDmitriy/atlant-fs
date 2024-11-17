@@ -45,7 +45,7 @@ class BitmapTest {
     void reserve_should_returnFirstFreeBit_when_requireSingle(String blocksHex, int expected, String expectedHex) {
         // Given
         var bitSet = BitSet.valueOf(byteBuffer(blocksHex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         var result = bitmap.reserve();
         // Then
@@ -58,7 +58,7 @@ class BitmapTest {
         // Given
         var hex = "ffffffffffffffff";
         var bitSet = BitSet.valueOf(byteBuffer(hex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         var result = bitmap.reserve();
         // Then
@@ -84,7 +84,7 @@ class BitmapTest {
     void reserve_should_returnListOfFreeRanges_when_requireMultiple(String blocksHex, int size, @ConvertWith(RangesListConverter.class) List<Bitmap.Range> expectedRanges, String expectedHex) {
         // Given
         var bitSet = BitSet.valueOf(byteBuffer(blocksHex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         var result = bitmap.reserve(size);
         // Then
@@ -97,7 +97,7 @@ class BitmapTest {
         // Given
         var hex = "ffffffffffffffff";
         var bitSet = BitSet.valueOf(byteBuffer(hex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         var result = bitmap.reserve(1);
         // Then
@@ -127,7 +127,7 @@ class BitmapTest {
     void free_should_unsetBit_when_single(String blocksHex, int bit, boolean expectedResult, String expectedHex) {
         // Given
         var bitSet = BitSet.valueOf(byteBuffer(blocksHex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         var result = bitmap.free(bit);
         // Then
@@ -152,7 +152,7 @@ class BitmapTest {
     void free_should_unsetAllBitsInRange_when_range(String blocksHex, @ConvertWith(RangeConverter.class) Bitmap.Range range, String expectedHex) {
         // Given
         var bitSet = BitSet.valueOf(byteBuffer(blocksHex));
-        var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+        var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
         // When
         bitmap.free(range);
         // Then
@@ -168,7 +168,7 @@ class BitmapTest {
                 .mapToObj(l -> BitSet.valueOf(new long[]{l}))
                 .map(bitSet -> DynamicTest.dynamicTest(hexOf(bitSet), () -> {
                     // Given
-                    var bitmap = new Bitmap(bitSet, BLOCK_SIZE);
+                    var bitmap = new Bitmap(Block.Id.of(12), bitSet, BLOCK_SIZE);
                     // When
                     var bit = bitmap.reserve();
                     var result = bitmap.free(bit);

@@ -86,7 +86,6 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
     protected Optional<K> reserveSingle(int bitmapNumber) {
         var bitmap = loadBitmap(bitmapNumber);
         try {
-            log.fine(() -> "Locking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.lock();
             log.fine(() -> "Reserving [1] item in [bitmapNumber=" + bitmapNumber + "]...");
             var reserved = bitmap.reserve();
@@ -100,7 +99,6 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
             write(bitmapNumber, bitmap);
             return Optional.of(applyOffset(bitmapNumber, reserved));
         } finally {
-            log.fine(() -> "Unlocking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.unlock();
         }
     }
@@ -109,7 +107,6 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
         List<Bitmap.Range> ranges = List.of();
         var bitmap = loadBitmap(bitmapNumber);
         try {
-            log.fine(() -> "Locking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.lock();
             log.fine(() -> "Reserving [" + size + "] items in [bitmapNumber=" + bitmapNumber + "]...");
             ranges = bitmap.reserve(size);
@@ -136,7 +133,6 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
             ranges.forEach(bitmap::free);
             throw e;
         } finally {
-            log.fine(() -> "Unlocking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.unlock();
         }
     }
@@ -152,7 +148,6 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
         var bitmapNumber = toBitmapNumber(id);
         var bitmap = loadBitmap(bitmapNumber);
         try {
-            log.fine(() -> "Locking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.lock();
             var changed = bitmap.free(toBitmapOffset(id));
             if (!changed) {
@@ -162,9 +157,35 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
             checkInvariant();
             write(bitmapNumber, bitmap);
         } finally {
-            log.fine(() -> "Unlocking bitmap [bitmapNumber=" + bitmapNumber + "]...");
             bitmap.unlock();
         }
+    }
+
+    /**
+     * Mark a list of {@code K} as free.
+     * <p>
+     * Thread safe, immediately flush changes to disk.
+     *
+     * @param ids the list of identifiers to mark as free
+     */
+    void free(List<K> ids) {
+        ids.stream()
+                .collect(Collectors.groupingBy(
+                        this::toBitmapNumber,
+                        TreeMap::new,
+                        Collectors.toList()))
+                .forEach((bitmapNumber, localIds) -> {
+                    var bitmap = loadBitmap(bitmapNumber);
+                    try {
+                        bitmap.lock();
+                        localIds.forEach(id -> bitmap.free(toBitmapOffset(id)));
+                        markAsVacant(bitmapNumber);
+                        checkInvariant();
+                        write(bitmapNumber, bitmap);
+                    } finally {
+                        bitmap.unlock();
+                    }
+                });
     }
 
     /**
@@ -178,7 +199,7 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
      *
      * @param ranges the list of ranges to free
      */
-    void free(List<R> ranges) {
+    void freeRanges(List<R> ranges) {
         ranges.stream()
                 .collect(Collectors.groupingBy(
                         range -> toBitmapNumber(range.from()),
@@ -187,14 +208,12 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
                 .forEach((bitmapNumber, localRanges) -> {
                     var bitmap = loadBitmap(bitmapNumber);
                     try {
-                        log.fine(() -> "Locking bitmap [bitmapNumber=" + bitmapNumber + "]...");
                         bitmap.lock();
                         localRanges.forEach(range -> bitmap.free(Bitmap.Range.of(toBitmapOffset(range.from()), range.length())));
                         markAsVacant(bitmapNumber);
                         checkInvariant();
                         write(bitmapNumber, bitmap);
                     } finally {
-                        log.fine(() -> "Unlocking bitmap [bitmapNumber=" + bitmapNumber + "]...");
                         bitmap.unlock();
                     }
                 });
@@ -208,7 +227,7 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
         return cache.computeIfAbsent(firstBlock().plus(bitmapNumber), id -> {
             log.fine(() -> "Reading bitmap [bitmapNumber=" + bitmapNumber + ", block=" + id + "]...");
             var buffer = fileSystem.readBlock(id);
-            var bitmap = Bitmap.read(buffer);
+            var bitmap = Bitmap.read(buffer, id);
             log.finer(() -> "Successfully read bitmap [bitmapNumber=" + bitmapNumber + ", block=" + id + "]...");
             return bitmap;
         });

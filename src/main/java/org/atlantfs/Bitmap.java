@@ -13,20 +13,22 @@ class Bitmap {
 
     static final int NOT_FOUND = -1;
 
+    private final Block.Id blockId;
     private final BitSet bitset;
     private final int length;
     private final ReentrantLock lock = new ReentrantLock();
     private boolean dirty;
 
-    Bitmap(BitSet bitset, int length) {
+    Bitmap(Block.Id blockId, BitSet bitset, int length) {
+        this.blockId = blockId;
         this.bitset = bitset;
         this.length = length;
         checkInvariant();
     }
 
-    static Bitmap read(ByteBuffer buffer) {
+    static Bitmap read(ByteBuffer buffer, Block.Id blockId) {
         var bitSet = BitSet.valueOf(buffer);
-        return new Bitmap(bitSet, buffer.capacity());
+        return new Bitmap(blockId, bitSet, buffer.capacity());
     }
 
     void write(ByteBuffer buffer) {
@@ -103,10 +105,12 @@ class Bitmap {
     }
 
     void lock() {
+        log.fine(() -> "Locking bitmap [blockId=" + blockId + "]...");
         this.lock.lock();
     }
 
     void unlock() {
+        log.fine(() -> "Unlocking bitmap [blockId=" + blockId + "]...");
         this.lock.unlock();
     }
 
