@@ -17,10 +17,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.atlantfs.util.AtlantFileUtil.atlantRoot;
 import static org.atlantfs.util.AtlantFileUtil.atlantUri;
 import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
 import static org.atlantfs.util.PathUtil.allDirectories;
+import static org.atlantfs.util.PathUtil.buildDir;
 import static org.atlantfs.util.PathUtil.normalize;
 import static org.atlantfs.util.PathUtil.projectDir;
 
@@ -167,7 +167,7 @@ class CreateDirectoryTest {
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    if (dir.equals(atlantRoot())) {
+                    if (dir.equals(buildDir())) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     var normalized = normalize(dir);

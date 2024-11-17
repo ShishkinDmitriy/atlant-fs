@@ -13,8 +13,8 @@ import java.nio.file.Files;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
-import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
 import static org.atlantfs.util.AtlantFileUtil.atlantFile;
+import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
 
 @ExtendWith(LoggingExtension.class)
 class AtlantFileChannelTest {

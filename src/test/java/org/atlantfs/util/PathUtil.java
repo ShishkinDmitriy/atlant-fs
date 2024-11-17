@@ -16,6 +16,10 @@ public class PathUtil {
         return Paths.get(System.getProperty("project.dir")); // Defined in build.gradle.kts
     }
 
+    public static Path buildDir() {
+        return Paths.get(System.getProperty("build.dir")); // Defined in build.gradle.kts
+    }
+
     public static String normalize(Path path) {
         return path.toString()
                 .replaceFirst("C:\\\\", "/")
