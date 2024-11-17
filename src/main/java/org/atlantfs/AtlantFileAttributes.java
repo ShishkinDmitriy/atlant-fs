@@ -5,18 +5,14 @@ import java.nio.file.attribute.FileTime;
 
 public class AtlantFileAttributes implements BasicFileAttributes {
 
-    private final Inode.Id id;
-    private final long size;
-    private final FileType fileType;
+    private final Inode inode;
 
-    private AtlantFileAttributes(Inode.Id id, long size, FileType fileType) {
-        this.id = id;
-        this.size = size;
-        this.fileType = fileType;
+    private AtlantFileAttributes(Inode inode) {
+        this.inode = inode;
     }
 
     static AtlantFileAttributes from(Inode inode) {
-        return new AtlantFileAttributes(inode.getId(), inode.getSize(), inode.getFileType());
+        return new AtlantFileAttributes(inode);
     }
 
     @Override
@@ -36,12 +32,12 @@ public class AtlantFileAttributes implements BasicFileAttributes {
 
     @Override
     public boolean isRegularFile() {
-        return fileType == FileType.REGULAR_FILE;
+        return inode.isRegularFile();
     }
 
     @Override
     public boolean isDirectory() {
-        return fileType == FileType.DIRECTORY;
+        return inode.isDirectory();
     }
 
     @Override
@@ -56,12 +52,12 @@ public class AtlantFileAttributes implements BasicFileAttributes {
 
     @Override
     public long size() {
-        return size;
+        return inode.getSize();
     }
 
     @Override
     public Object fileKey() {
-        return id;
+        return inode.getId();
     }
 
 }

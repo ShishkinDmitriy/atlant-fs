@@ -207,21 +207,19 @@ public class AtlantFileSystem extends FileSystem {
             return new SeekableByteChannel() {
 
                 private long position;
+                private boolean open = true;
 
                 @Override
                 public int read(ByteBuffer dst) throws IOException {
                     checkOpen();
-                    if (position > finalInode.getSize()) {
-                        throw new IOException("EOF reached");
-                    }
-                    return 0;
+                    var read = finalInode.read(position, dst);
+                    position += read;
+                    return read;
                 }
 
                 @Override
                 public int write(ByteBuffer src) throws IOException {
-                    if (position >= finalInode.getSize() && !options.contains(APPEND)) {
-                        throw new IOException("Opened as not APPEND");
-                    }
+                    checkOpen();
                     return finalInode.write(position, src);
                 }
 
@@ -240,12 +238,6 @@ public class AtlantFileSystem extends FileSystem {
                     return this;
                 }
 
-                private void checkOpen() throws ClosedChannelException {
-                    if (!isOpen()) {
-                        throw new ClosedChannelException();
-                    }
-                }
-
                 @Override
                 public long size() {
                     return finalInode.getSize();
@@ -258,17 +250,27 @@ public class AtlantFileSystem extends FileSystem {
 
                 @Override
                 public boolean isOpen() {
-                    return false;
+                    return open;
                 }
 
                 @Override
                 public void close() throws IOException {
+                    if (!open) {
+                        return;
+                    }
+                    open = false;
                     if (options.contains(WRITE) || options.contains(APPEND)) {
                         finalInode.endWrite();
                     } else {
                         finalInode.endRead();
                     }
                     atlant.close();
+                }
+
+                private void checkOpen() throws ClosedChannelException {
+                    if (!isOpen()) {
+                        throw new ClosedChannelException();
+                    }
                 }
 
             };
@@ -471,11 +473,24 @@ public class AtlantFileSystem extends FileSystem {
         return buffer;
     }
 
-    void writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
-        writeBlock(blockId, 0, consumer);
+    int writeBlockEmpty(Block.Id blockId, int offset, int length) {
+        if (length <= 0) {
+            return 0;
+        }
+        log.fine(() -> "Writing empty data into [blockId=" + blockId + ", offset=" + offset + ", length=" + length + "]...");
+        return writeBlock(blockId, offset, writeBuffer -> writeBuffer.put(new byte[length]));
     }
 
-    void writeBlock(Block.Id blockId, int offset, Consumer<ByteBuffer> consumer) {
+    int writeBlockData(Block.Id blockId, int offset, ByteBuffer buffer) {
+        log.fine(() -> "Writing data into [blockId=" + blockId + ", offset=" + offset + ", bufferRemaining=" + buffer.remaining() + "]...");
+        return writeBlock(blockId, offset, writeBuffer -> writeBuffer.put(buffer));
+    }
+
+    int writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
+        return writeBlock(blockId, 0, consumer);
+    }
+
+    int writeBlock(Block.Id blockId, int offset, Consumer<ByteBuffer> consumer) {
         var buffer = getBlockByteBuffer();
         consumer.accept(buffer);
         buffer.flip();
@@ -490,6 +505,7 @@ public class AtlantFileSystem extends FileSystem {
             var written = channel.write(buffer);
             statistics.incrementWriteCalls();
             statistics.addWriteBytes(written);
+            return written;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

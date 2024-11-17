@@ -4,8 +4,8 @@ import java.nio.ByteBuffer;
 
 interface FileOperations {
 
-    int write(long position, ByteBuffer buffer);
+    int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException, DataOutOfMemoryException;
 
-    int read(long position, ByteBuffer buffer);
+    int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException;
 
 }

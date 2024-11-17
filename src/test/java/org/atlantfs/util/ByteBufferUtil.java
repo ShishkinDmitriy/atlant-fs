@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 
+import static org.atlantfs.util.RandomUtil.randomInt;
+
 public class ByteBufferUtil {
 
     public static ByteBuffer byteBuffer(String hex) {
@@ -21,6 +23,15 @@ public class ByteBufferUtil {
                 .map(ByteBuffer::wrap)
                 .map(b -> b.order(ByteOrder.LITTLE_ENDIAN))
                 .toList();
+    }
+
+    public static ByteBuffer randomByteBuffer(int capacity) {
+        var buffer = ByteBuffer.allocate(capacity);
+        while (buffer.hasRemaining()) {
+            buffer.put((byte) randomInt());
+        }
+        buffer.flip();
+        return buffer;
     }
 
 }

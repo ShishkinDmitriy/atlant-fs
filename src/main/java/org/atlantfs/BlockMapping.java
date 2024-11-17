@@ -17,7 +17,7 @@ import java.util.stream.IntStream;
  * Cache      -> Statistics: [readCalls=300, readBytes=38400, writeCalls=5190, writeBytes=305268]
  * </pre>
  */
-class BlockMapping implements DirectoryOperations, IBlock {
+class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
 
     private static final Logger log = Logger.getLogger(BlockMapping.class.getName());
 
@@ -39,7 +39,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
         for (var i = 0; i < numberOfAddresses; i++) {
             blocks.add(Block.Id.read(buffer));
         }
-        buffer.position(position + Inode.iBlockLength(inode.fileSystem.inodeSize()));
+        buffer.position(position + Inode.iBlockLength(inode.getFileSystem().inodeSize()));
         return new BlockMapping(inode, blocks);
     }
 
@@ -51,7 +51,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public void write(ByteBuffer buffer) {
-        var iBlockLength = Inode.iBlockLength(inode.fileSystem.inodeSize());
+        var iBlockLength = Inode.iBlockLength(inode.getFileSystem().inodeSize());
         assert buffer.remaining() >= iBlockLength;
         var initial = buffer.position();
         addresses.forEach(id -> id.write(buffer));
@@ -60,6 +60,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public Iterator<DirEntry> iterator() {
+        inode.ensureDirectory();
         return new Iterator<>() {
 
             int currentList = 0;
@@ -89,6 +90,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public DirEntry add(Inode.Id inodeId, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+        inode.ensureDirectory();
         for (int i = 0; i < blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
@@ -109,6 +111,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public DirEntry get(String name) throws NoSuchFileException {
+        inode.ensureDirectory();
         for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
@@ -123,6 +126,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
+        inode.ensureDirectory();
         for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
@@ -138,6 +142,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     @Override
     public void delete(String name) throws NoSuchFileException {
+        inode.ensureDirectory();
         for (int i = 0; i < inode.blocksCount(); i++) {
             try {
                 var blockId = resolve(i);
@@ -149,6 +154,86 @@ class BlockMapping implements DirectoryOperations, IBlock {
             }
         }
         throw new NoSuchFileException("File [" + name + "] was not found");
+    }
+
+    @Override
+    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+        var blockSize = blockSize();
+        var lastExistingBlockNumber = (int) inode.getSize() / blockSize;
+        var lastExistingBlockId = resolve(lastExistingBlockNumber);
+        var firstRequiredBlockNumber = (int) (position / blockSize);
+        if (lastExistingBlockNumber == firstRequiredBlockNumber) {
+            // Need to fill with zeros all space from last written byte up to required start position
+            var offset = (int) inode.getSize() % blockSize;
+            var requiredOffset = (int) position % blockSize;
+            var length = requiredOffset - offset;
+            if (length > 0) {
+                writeEmptyData(lastExistingBlockId, offset, length);
+            }
+        }
+        if (lastExistingBlockNumber < firstRequiredBlockNumber) {
+            // There is a gap on end, then possibly N empty blocks and new block with gap on start.
+            // Fill lastExistingBlockNumber by zeros up to the end
+            {
+                var offset = (int) inode.getSize() % blockSize;
+                var length = blockSize - offset;
+                writeEmptyData(lastExistingBlockId, offset, length);
+            }
+            for (int i = 0; i < firstRequiredBlockNumber - lastExistingBlockNumber - 1; i++) {
+                lastExistingBlockId = allocate();
+                lastExistingBlockNumber++;
+                writeEmptyData(lastExistingBlockId, 0, blockSize);
+            }
+            {
+                lastExistingBlockId = allocate();
+                lastExistingBlockNumber++;
+                var offset = (int) position % blockSize;
+                if (offset > 0) {
+                    writeEmptyData(lastExistingBlockId, 0, offset);
+                }
+            }
+        }
+        var totalWritten = 0;
+        var initial = buffer.position();
+        while (buffer.hasRemaining()) {
+            var positionPlus = position + buffer.position() - initial;
+            var blockNumber = (int) (positionPlus / blockSize);
+            var offset = (int) (positionPlus % blockSize);
+            var length = Math.min(blockSize - offset, buffer.remaining());
+            if (blockNumber > lastExistingBlockNumber) {
+                lastExistingBlockId = allocate();
+                lastExistingBlockNumber++;
+            }
+            var written = writeData(lastExistingBlockId, offset, buffer.slice(buffer.position(), length));
+            totalWritten += written;
+            buffer.position(buffer.position() + written);
+            if (written < length) {
+                break;
+            }
+        }
+        assert !buffer.hasRemaining();
+        return totalWritten;
+    }
+
+    @Override
+    public int read(long position, ByteBuffer buffer) {
+        var blockSize = blockSize();
+        var totalRead = 0;
+        var initial = buffer.position();
+        while (buffer.hasRemaining()) {
+            var positionPlus = position + buffer.position() - initial;
+            var blockNumber = (int) (positionPlus / blockSize);
+            if (positionPlus >= inode.getSize()) {
+                return totalRead;
+            }
+            var offset = (int) (positionPlus % blockSize);
+            var length = Math.min(blockSize - offset, buffer.remaining());
+            var blockId = resolve(blockNumber);
+            var slice = inode.getFileSystem().readBlock(blockId).slice(offset, length);
+            buffer.put(slice);
+            totalRead += length;
+        }
+        return totalRead;
     }
 
     Block.Id resolve(int blockNumber) {
@@ -206,6 +291,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
         }
         writeBlockId(current, offsets.getLast(), result);
         checkInvariant();
+        log.fine(() -> "Successfully allocated [blockNumber=" + blocksCount + ", blockId=" + result + "] by [" + offsets.size() + "] level indirect");
         return result;
     }
 
@@ -232,7 +318,7 @@ class BlockMapping implements DirectoryOperations, IBlock {
 
     Block.Id readBlockId(Coordinates coordinates) {
         return indirectBlocksCache.computeIfAbsent(coordinates, key -> {
-            log.fine(() -> "Reading from [coordinates=" + key + "]...");
+            log.fine(() -> "Reading blockId from [coordinates=" + key + "]...");
             var buffer = inode.readBlock(key.blockId);
             buffer.position(key.offset * Block.Id.LENGTH);
             return Block.Id.read(buffer);
@@ -240,9 +326,17 @@ class BlockMapping implements DirectoryOperations, IBlock {
     }
 
     void writeBlockId(Block.Id blockId, int offset, Block.Id value) {
-        log.fine(() -> "Writing into [blockId=" + blockId + ", offset=" + offset + ", value=" + value + "]...");
+        log.fine(() -> "Writing blockId into [blockId=" + blockId + ", offset=" + offset + ", value=" + value + "]...");
         inode.writeBlock(blockId, offset * Block.Id.LENGTH, value::write);
         indirectBlocksCache.put(Coordinates.of(blockId, offset), value);
+    }
+
+    int writeEmptyData(Block.Id blockId, int offset, int length) {
+        return inode.getFileSystem().writeBlockEmpty(blockId, offset, length);
+    }
+
+    int writeData(Block.Id blockId, int offset, ByteBuffer buffer) {
+        return inode.getFileSystem().writeBlockData(blockId, offset, buffer);
     }
 
     DirEntryList readDirEntryList(Block.Id blockId) {

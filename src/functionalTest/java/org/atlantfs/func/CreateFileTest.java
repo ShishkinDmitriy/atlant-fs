@@ -19,9 +19,9 @@ import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
 import static org.atlantfs.util.AtlantFileUtil.atlantRoot;
 import static org.atlantfs.util.AtlantFileUtil.atlantUri;
+import static org.atlantfs.util.AtlantFileUtil.deleteAllAtlantFiles;
 import static org.atlantfs.util.PathUtil.allRegularFiles;
 import static org.atlantfs.util.PathUtil.normalize;
 import static org.atlantfs.util.PathUtil.projectDir;
@@ -51,6 +51,13 @@ class CreateFileTest {
             // Then
             var files = allRegularFiles(fileSystem);
             assertThat(files).containsOnly(path.toString());
+        }
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
+            var path = fileSystem.getPath("/file.txt");
+            // When
+            var exists = Files.exists(path);
+            // Then
+            assertThat(exists).isTrue();
         }
     }
 

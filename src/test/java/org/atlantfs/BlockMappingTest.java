@@ -15,14 +15,17 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.atlantfs.util.ByteBufferUtil.randomByteBuffer;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
@@ -304,6 +307,71 @@ class BlockMappingTest {
     }
     //endregion
 
+    @CsvSource(value = {
+            // Given              | Call              | Write block                     | Write block             |
+            // block size |  size | position | length | blockId       | offset | length | blockId        | offset |
+            "           8 |     0 |        0 |      1 |               |        |        |            100 |      0 ",
+            "           8 |     0 |        7 |      1 |           100 |      0 |      7 |            100 |      7 ",
+            "           8 |     0 |        8 |      1 |           100 |      0 |      8 |           1500 |      0 ",
+            "           8 |     0 |        8 |      8 |           100 |      0 |      8 |           1500 |      0 ",
+            "           8 |     0 |       16 |     16 |      100,1500 |    0,0 |    8,8 |      1501,1502 |    0,0 ",
+            "           8 |     0 |       17 |     16 | 100,1500,1501 |  0,0,0 |  8,8,1 | 1501,1502,1503 |  1,0,0 ",
+            "           8 |     7 |       17 |     16 | 100,1500,1501 |  7,0,0 |  1,8,1 | 1501,1502,1503 |  1,0,0 ",
+            "           8 |     1 |        0 |      1 |               |        |        |            100 |      0 ",
+            "           8 |     1 |       16 |     16 |      100,1500 |    1,0 |    7,8 |      1501,1502 |    0,0 ",
+            "           8 |     2 |        0 |      1 |               |        |        |            100 |      0 ",
+            "           8 |    20 |       16 |     16 |               |        |        |       100,1500 |    0,0 ",
+    }, delimiter = '|')
+    @ParameterizedTest
+    void write_should_writeBlocks(
+            int blockSize,
+            long size,
+            long position,
+            int length,
+            @ConvertWith(BlockIdListConverter.class) List<Block.Id> expectedWriteEmptyBlockIds,
+            @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedWriteEmptyOffsets,
+            @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedWriteEmptyLengths,
+            @ConvertWith(BlockIdListConverter.class) List<Block.Id> expectedWriteBlockIds,
+            @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedWriteOffsets,
+            @Mock Inode inode,
+            @Mock AtlantFileSystem fileSystem,
+            @Captor ArgumentCaptor<Block.Id> writeEmptyBlockIds,
+            @Captor ArgumentCaptor<Integer> writeEmptyOffsets,
+            @Captor ArgumentCaptor<Integer> writeEmptyLengths,
+            @Captor ArgumentCaptor<Block.Id> writeBlockIds,
+            @Captor ArgumentCaptor<Integer> writeOffsets,
+            @Captor ArgumentCaptor<ByteBuffer> writeBuffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+        // Given
+        lenient().when(fileSystem.blockSize()).thenReturn(blockSize);
+        lenient().when(inode.blockSize()).thenReturn(blockSize);
+        lenient().when(inode.getFileSystem()).thenReturn(fileSystem);
+        lenient().when(fileSystem.inodeSize()).thenReturn(32);
+        lenient().when(inode.getSize()).thenReturn(size);
+        var blockMapping = spy(new BlockMapping(inode, List.of()));
+        AtomicInteger allocated = new AtomicInteger(1500);
+        AtomicInteger resolved = new AtomicInteger(100);
+        lenient().doAnswer(_ -> Block.Id.of(allocated.getAndIncrement())).when(blockMapping).allocate();
+        lenient().doAnswer(_ -> Block.Id.of(resolved.getAndIncrement())).when(blockMapping).resolve(anyInt());
+        lenient().doAnswer(invocation -> invocation.getArgument(2)).when(fileSystem).writeBlockEmpty(writeEmptyBlockIds.capture(), writeEmptyOffsets.capture(), writeEmptyLengths.capture());
+        lenient().doAnswer(invocation -> invocation.getArgument(2, ByteBuffer.class).capacity()).when(fileSystem).writeBlockData(writeBlockIds.capture(), writeOffsets.capture(), writeBuffer.capture());
+        var buffer = randomByteBuffer(length);
+        var bytes = buffer.array();
+        // When
+        var result = blockMapping.write(position, buffer);
+        // Then
+        assertSoftly(softly -> {
+            softly.assertThat(writeEmptyBlockIds.getAllValues()).containsExactlyElementsOf(expectedWriteEmptyBlockIds);
+            softly.assertThat(writeEmptyOffsets.getAllValues()).containsExactlyElementsOf(expectedWriteEmptyOffsets);
+            softly.assertThat(writeEmptyLengths.getAllValues()).containsExactlyElementsOf(expectedWriteEmptyLengths);
+            softly.assertThat(writeBlockIds.getAllValues()).containsExactlyElementsOf(expectedWriteBlockIds);
+            softly.assertThat(writeOffsets.getAllValues()).containsExactlyElementsOf(expectedWriteOffsets);
+            var values = writeBuffer.getAllValues();
+            var sum = values.stream().mapToInt(ByteBuffer::capacity).sum();
+            var actualWritten = values.stream().reduce(ByteBuffer.allocate(sum), ByteBuffer::put).array();
+            softly.assertThat(actualWritten).containsExactly(bytes);
+            softly.assertThat(result).isEqualTo(length);
+        });
+    }
 
     @CsvSource(value = {
             // Given                                              | Expected                                                                                        |
