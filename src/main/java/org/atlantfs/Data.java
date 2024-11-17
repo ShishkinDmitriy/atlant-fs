@@ -53,4 +53,8 @@ class Data implements IBlock, FileOperations {
         return bound;
     }
 
+    boolean hasData() {
+        return length > 0;
+    }
+
 }

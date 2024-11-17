@@ -47,7 +47,7 @@ class InodeTableRegion implements AbstractRegion {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var inode = function.apply(fileSystem, reserved);
-        fileSystem.writeInode(reserved, inode::write);
+        fileSystem.writeInode(inode);
         cache.put(reserved, inode);
         return inode;
     }

@@ -180,6 +180,10 @@ class CreateDirectoryTest {
             // Then
             assertThat(allDirectories(fileSystem)).containsExactlyInAnyOrderElementsOf(collection);
         }
+        try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
+            // Then
+            assertThat(allDirectories(fileSystem)).containsExactlyInAnyOrderElementsOf(collection);
+        }
     }
 
 }

@@ -41,7 +41,7 @@ class Inode implements FileOperations, DirectoryOperations {
         this.size = size;
         this.blocksCount = blocksCount;
         this.iBlockType = IBlockType.FILE_INLINE_DATA;
-        this.iBlock = new Data(new byte[0], iBlockLength(fileSystem.inodeSize()));
+        this.iBlock = new Data(new byte[iBlockLength(fileSystem.inodeSize())], (int) size);
         checkInvariant();
     }
 
@@ -58,7 +58,7 @@ class Inode implements FileOperations, DirectoryOperations {
     static Inode createRegularFile(AtlantFileSystem fileSystem, Inode.Id id) {
         var inodeSize = fileSystem.inodeSize();
         var iBlockLength = iBlockLength(inodeSize);
-        return new Inode(fileSystem, id, 0, 0, IBlockType.FILE_INLINE_DATA, new Data(new byte[iBlockLength], iBlockLength));
+        return new Inode(fileSystem, id, 0, 0, IBlockType.FILE_INLINE_DATA, new Data(new byte[iBlockLength], 0));
     }
 
     static Inode createDirectory(AtlantFileSystem fileSystem, Inode.Id id) {
@@ -114,13 +114,10 @@ class Inode implements FileOperations, DirectoryOperations {
             flush();
             return result;
         } catch (DirEntryListOfMemoryException e) {
-            return upgradeAndAdd(directoryOperations -> {
-                try {
-                    return directoryOperations.add(inode, fileType, name);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-            });
+            upgradeInlineDirList();
+            var result = directoryOperations().add(inode, fileType, name);
+            flush();
+            return result;
         } finally {
             endWrite();
         }
@@ -143,14 +140,9 @@ class Inode implements FileOperations, DirectoryOperations {
             directoryOperations().rename(name, newName);
             flush();
         } catch (DirEntryListOfMemoryException e) {
-            upgradeAndAdd(directoryOperations -> {
-                try {
-                    directoryOperations.rename(name, newName);
-                    return null;
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-            });
+            upgradeInlineDirList();
+            directoryOperations().rename(name, newName);
+            flush();
         } finally {
             endWrite();
         }
@@ -169,16 +161,17 @@ class Inode implements FileOperations, DirectoryOperations {
 
     @Override
     public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException, DataOutOfMemoryException {
+        var initial = buffer.position();
         try {
             beginWrite();
             var written = fileOperations().write(position, buffer);
-            size = Math.max(size, position + written);
+            size = Math.max(size, position + initial + written);
             flush();
             return written;
         } catch (DataOutOfMemoryException e) {
             upgradeInlineData();
             var written = fileOperations().write(position, buffer);
-            size = Math.max(size, position + written);
+            size = Math.max(size, position + initial + written);
             flush();
             return written;
         } finally {
@@ -198,45 +191,52 @@ class Inode implements FileOperations, DirectoryOperations {
         }
     }
 
-    private <T> T upgradeAndAdd(Function<DirectoryOperations, T> func) throws BitmapRegionOutOfMemoryException {
+    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
-        assert iBlockType == IBlockType.DIR_INLINE_LIST;
-        var blockSize = blockSize();
+        assert iBlockType == IBlockType.DIR_INLINE_LIST : "Only DIR_INLINE_LIST can be upgraded";
+        assert blocksCount == 0 : "Should be no blocks before upgrade";
         var dirEntryList = (DirEntryList) iBlock;
-        dirEntryList.resize(blockSize);
-        var dirEntry = func.apply(dirEntryList);
-        var reserved = reserveBlock();
-        size = (long) blocksCount * blockSize;
-        writeBlock(reserved, dirEntryList::write);
-        iBlock = BlockMapping.init(this, reserved);
+//        var blockSize = blockSize();
+//        dirEntryList.resize(blockSize);
+//        var reserved = reserveBlock();
+//        writeBlock(reserved, dirEntryList::write);
+        iBlock = BlockMapping.init(this, dirEntryList);
         iBlockType = IBlockType.DIR_BLOCK_MAPPING;
+        size = (long) blocksCount * blockSize();
         dirty = true;
+        assert blocksCount == 0 || blocksCount == 1 : "Can be zero if upgraded from empty data or 1 if had content before";
         checkInvariant();
-        return dirEntry;
     }
 
     private void upgradeInlineData() throws BitmapRegionOutOfMemoryException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline data to block mapping...");
-        assert iBlockType == IBlockType.FILE_INLINE_DATA;
-        assert blocksCount == 0;
+        assert iBlockType == IBlockType.FILE_INLINE_DATA : "Only FILE_INLINE_DATA can be upgraded";
+        assert size >= 0 : "Size can be 0 if were no content in file or positive if there is small amount";
+        assert blocksCount == 0 : "Should be no blocks before upgrade";
         var data = (Data) iBlock;
-        var reserved = reserveBlock();
-        writeBlock(reserved, data::write);
-        iBlock = BlockMapping.init(this, reserved);
+        iBlock = BlockMapping.init(this, data);
         iBlockType = IBlockType.FILE_BLOCK_MAPPING;
         dirty = true;
+        assert blocksCount == 0 || blocksCount == 1 : "Can be zero if upgraded from empty data or 1 if had content before";
         checkInvariant();
     }
 
-    protected Block.Id reserveBlock() throws BitmapRegionOutOfMemoryException {
+    Block.Id reserveBlock() throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveBlock();
         blocksCount++;
         return reserved;
     }
 
+    /**
+     * Reserve number of blocks, but only 1 for data, so blocksCount will be increased only on 1.
+     *
+     * @param size the number of blocks to reserve
+     * @return the list of block ranges reserved
+     * @throws BitmapRegionOutOfMemoryException if no more free blocks
+     */
     protected List<Block.Range> reserveBlocks(int size) throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveBlocks(size);
-        blocksCount += reserved.size();
+        blocksCount++;
         return reserved;
     }
 
@@ -251,7 +251,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     private void flush() {
-        fileSystem.writeInode(id, this::write); // Can grow, TODO: add isDirty check
+        fileSystem.writeInode(this); // Can grow, TODO: add isDirty check
     }
 
     void beginRead() {

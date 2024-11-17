@@ -96,11 +96,11 @@ class CreateFileTest {
             // When
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     if (dir.equals(atlantRoot())) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
-                    return super.preVisitDirectory(dir, attrs);
+                    return FileVisitResult.CONTINUE;
                 }
 
                 @Override

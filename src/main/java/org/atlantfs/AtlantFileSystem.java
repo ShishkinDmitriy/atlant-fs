@@ -461,8 +461,12 @@ public class AtlantFileSystem extends FileSystem {
         assert channel != null;
         assert channel.isOpen();
         try {
-            channel.position(inodePosition(inodeId));
+            var inodePosition = inodePosition(inodeId);
+            channel.position(inodePosition);
             var read = channel.read(buffer);
+            if (read < 0) {
+                throw new IOException("Unexpected EOF");
+            }
             statistics.incrementReadCalls();
             statistics.addReadBytes(read);
             buffer.flip();
@@ -473,9 +477,9 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     int writeBlockEmpty(Block.Id blockId, int offset, int length) {
-        if (length <= 0) {
-            return 0;
-        }
+        assert offset >= 0;
+        assert offset < blockSize();
+        assert length >= 0;
         log.fine(() -> "Writing empty data into [blockId=" + blockId + ", offset=" + offset + ", length=" + length + "]...");
         return writeBlock(blockId, offset, writeBuffer -> writeBuffer.put(new byte[length]));
     }
@@ -490,6 +494,8 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     int writeBlock(Block.Id blockId, int offset, Consumer<ByteBuffer> consumer) {
+        assert offset >= 0;
+        assert offset < blockSize();
         var buffer = getBlockByteBuffer();
         consumer.accept(buffer);
         buffer.flip();
@@ -510,14 +516,15 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    void writeInode(Inode.Id inodeId, Consumer<ByteBuffer> consumer) {
+    void writeInode(Inode inode) {
         var buffer = getInodeByteBuffer();
-        consumer.accept(buffer);
+        inode.write(buffer);
         buffer.flip();
         var channel = AtlantFileChannel.get();
         assert channel != null;
         assert channel.isOpen();
         try {
+            var inodeId = inode.getId();
             var inodePosition = inodePosition(inodeId);
             log.finer(() -> "Writing into Atlant file [inodeId=" + inodeId + ", position=" + inodePosition + ", bytes=" + buffer.remaining() + "]...");
             channel.position(inodePosition);

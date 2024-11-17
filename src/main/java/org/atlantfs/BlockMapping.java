@@ -43,9 +43,22 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         return new BlockMapping(inode, blocks);
     }
 
-    static BlockMapping init(Inode inode, Block.Id blockId) {
+    static BlockMapping init(Inode inode, Data data) throws BitmapRegionOutOfMemoryException {
         var blocks = new ArrayList<Block.Id>();
-        blocks.add(blockId);
+        if (data.hasData()) {
+            var reserved = inode.reserveBlock();
+            inode.writeBlock(reserved, data::write);
+            blocks.add(reserved);
+        }
+        return new BlockMapping(inode, blocks);
+    }
+
+    static BlockMapping init(Inode inode, DirEntryList dirEntryList) throws BitmapRegionOutOfMemoryException {
+        var blocks = new ArrayList<Block.Id>();
+        dirEntryList.resize(inode.blockSize());
+        var reserved = inode.reserveBlock();
+        inode.writeBlock(reserved, dirEntryList::write);
+        blocks.add(reserved);
         return new BlockMapping(inode, blocks);
     }
 
@@ -159,44 +172,50 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
     @Override
     public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
         var blockSize = blockSize();
-        var lastExistingBlockNumber = (int) inode.getSize() / blockSize;
-        var lastExistingBlockId = resolve(lastExistingBlockNumber);
-        var firstRequiredBlockNumber = (int) (position / blockSize);
-        if (lastExistingBlockNumber == firstRequiredBlockNumber) {
-            // Need to fill with zeros all space from last written byte up to required start position
-            var offset = (int) inode.getSize() % blockSize;
-            var requiredOffset = (int) position % blockSize;
-            var length = requiredOffset - offset;
-            if (length > 0) {
-                writeEmptyData(lastExistingBlockId, offset, length);
+        var lastExistingBlockNumber = -1;
+        Block.Id lastExistingBlockId = null;
+        if (inode.getSize() > 0) {
+            var lastExistingPosition = inode.getSize() - 1;
+            lastExistingBlockNumber = lastExistingPosition < 0 ? -1 : (int) lastExistingPosition / blockSize;
+            lastExistingBlockId = resolve(lastExistingBlockNumber);
+            var firstRequiredBlockNumber = (int) ((position + buffer.position()) / blockSize);
+            if (lastExistingBlockNumber == firstRequiredBlockNumber) {
+                // Need to fill with zeros all space from last written byte up to required start position
+                var offset = (int) ((lastExistingPosition + 1) % blockSize);
+                var requiredOffset = (int) ((position + buffer.position()) % blockSize);
+                var length = requiredOffset - offset;
+                if (length > 0) {
+                    writeEmptyData(lastExistingBlockId, offset, length);
+                }
             }
-        }
-        if (lastExistingBlockNumber < firstRequiredBlockNumber) {
-            // There is a gap on end, then possibly N empty blocks and new block with gap on start.
-            // Fill lastExistingBlockNumber by zeros up to the end
-            {
-                var offset = (int) inode.getSize() % blockSize;
-                var length = blockSize - offset;
-                writeEmptyData(lastExistingBlockId, offset, length);
-            }
-            for (int i = 0; i < firstRequiredBlockNumber - lastExistingBlockNumber - 1; i++) {
-                lastExistingBlockId = allocate();
-                lastExistingBlockNumber++;
-                writeEmptyData(lastExistingBlockId, 0, blockSize);
-            }
-            {
-                lastExistingBlockId = allocate();
-                lastExistingBlockNumber++;
-                var offset = (int) position % blockSize;
-                if (offset > 0) {
-                    writeEmptyData(lastExistingBlockId, 0, offset);
+            if (lastExistingBlockNumber < firstRequiredBlockNumber) {
+                // There is a gap on end, then possibly N empty blocks and new block with gap on start.
+                // Fill lastExistingBlockNumber by zeros up to the end
+                {
+                    var offset = (int) (lastExistingPosition % blockSize) + 1;
+                    var length = blockSize - offset;
+                    if (length > 0) {
+                        writeEmptyData(lastExistingBlockId, offset, length);
+                    }
+                }
+                for (int i = 0; i < firstRequiredBlockNumber - lastExistingBlockNumber - 1; i++) {
+                    lastExistingBlockId = allocate();
+                    lastExistingBlockNumber++;
+                    writeEmptyData(lastExistingBlockId, 0, blockSize);
+                }
+                {
+                    lastExistingBlockId = allocate();
+                    lastExistingBlockNumber++;
+                    var offset = (int) position % blockSize;
+                    if (offset > 0) {
+                        writeEmptyData(lastExistingBlockId, 0, offset);
+                    }
                 }
             }
         }
         var totalWritten = 0;
-        var initial = buffer.position();
         while (buffer.hasRemaining()) {
-            var positionPlus = position + buffer.position() - initial;
+            var positionPlus = position + buffer.position();
             var blockNumber = (int) (positionPlus / blockSize);
             var offset = (int) (positionPlus % blockSize);
             var length = Math.min(blockSize - offset, buffer.remaining());
@@ -219,9 +238,8 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
     public int read(long position, ByteBuffer buffer) {
         var blockSize = blockSize();
         var totalRead = 0;
-        var initial = buffer.position();
         while (buffer.hasRemaining()) {
-            var positionPlus = position + buffer.position() - initial;
+            var positionPlus = position + buffer.position();
             var blockNumber = (int) (positionPlus / blockSize);
             if (positionPlus >= inode.getSize()) {
                 return totalRead;
@@ -273,9 +291,10 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         }
         var numberOfDirectBlocks = numberOfDirectBlocks(inodeSize);
         var offsets = addressOffsets(blockSize, inodeSize, blocksCount);
+        log.finer(() -> "Calculated offsets [offsets=" + offsets + "]...");
         var newIndirectBlocksCount = numberOfTrailingZeros(offsets);
         var reserved = inode.reserveBlocks(newIndirectBlocksCount + 1);
-        var ids = flat(reserved);
+        var ids = flat(reserved); // Last is data block
         for (int i = ids.size() - 2; i >= 0; i--) {
             writeBlockId(ids.get(i), 0, ids.get(i + 1));
         }
@@ -286,10 +305,11 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
             return result;
         }
         var current = addresses.get(numberOfDirectBlocks + offsets.size() - 1);
-        for (int i = 0; i < offsets.size() - newIndirectBlocksCount - 1; i++) {
+        var lastNonZeroLevel = offsets.size() - newIndirectBlocksCount - 1;
+        for (int i = 0; i < lastNonZeroLevel; i++) {
             current = readBlockId(current, offsets.get(i));
         }
-        writeBlockId(current, offsets.getLast(), result);
+        writeBlockId(current, offsets.get(lastNonZeroLevel), ids.getFirst());
         checkInvariant();
         log.fine(() -> "Successfully allocated [blockNumber=" + blocksCount + ", blockId=" + result + "] by [" + offsets.size() + "] level indirect");
         return result;
@@ -321,7 +341,10 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
             log.fine(() -> "Reading blockId from [coordinates=" + key + "]...");
             var buffer = inode.readBlock(key.blockId);
             buffer.position(key.offset * Block.Id.LENGTH);
-            return Block.Id.read(buffer);
+            var blockId = Block.Id.read(buffer);
+            assert !blockId.equals(Block.Id.ZERO);
+            log.fine(() -> "Successfully read [blockId=" + blockId + "] from [coordinates=" + key + "]");
+            return blockId;
         });
     }
 
