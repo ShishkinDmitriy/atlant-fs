@@ -26,17 +26,13 @@ class InodeTableRegion implements AbstractRegion {
     }
 
     static InodeTableRegion read(AtlantFileSystem fileSystem) {
-        var buffer = fileSystem.readInode(Inode.Id.ROOT);
-        var root = Inode.read(fileSystem, buffer, Inode.Id.ROOT);
+        var root = fileSystem.readInode(Inode.Id.ROOT);
         return new InodeTableRegion(fileSystem, root);
     }
 
     Inode get(Inode.Id inodeId) {
         checkInodeIdLimit(inodeId);
-        return cache.computeIfAbsent(inodeId, id -> {
-            var buffer = fileSystem.readInode(id);
-            return Inode.read(fileSystem, buffer, id);
-        });
+        return cache.computeIfAbsent(inodeId, fileSystem::readInode);
     }
 
     Inode createFile() throws BitmapRegionOutOfMemoryException {

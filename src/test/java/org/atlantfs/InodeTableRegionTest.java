@@ -2,7 +2,6 @@ package org.atlantfs;
 
 import org.atlantfs.util.LoggingExtension;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,14 +10,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, LoggingExtension.class})
 class InodeTableRegionTest {
+
+    public static final int BLOCK_SIZE = 4096;
+    public static final int INODE_SIZE = 128;
 
     @Mock
     AtlantFileSystem fileSystem;
@@ -26,40 +27,46 @@ class InodeTableRegionTest {
     SuperBlock superBlock;
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws BitmapRegionOutOfMemoryException {
         lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
-        lenient().when(superBlock.blockSize()).thenReturn(4096);
-        lenient().when(superBlock.inodeSize()).thenReturn(128);
+        lenient().when(fileSystem.blockSize()).thenReturn(BLOCK_SIZE);
+        lenient().when(fileSystem.inodeSize()).thenReturn(INODE_SIZE);
+        lenient().when(fileSystem.reserveInode()).thenReturn(Inode.Id.ROOT).thenReturn(Inode.Id.of(45));
+        lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
+        lenient().when(superBlock.inodeSize()).thenReturn(INODE_SIZE);
         lenient().when(superBlock.firstBlockOfInodeTables()).thenReturn(Block.Id.of(9));
         lenient().when(superBlock.numberOfInodeTables()).thenReturn(120);
     }
 
     //region InodeTable::get
     @Test
-    @Disabled
-    void get_should_findInodeInChannel() {
+    void get_should_findInodeInChannel(@Mock Inode inode) {
         // Given
+        var inodeId = Inode.Id.of(53);
         var inodeTable = new InodeTableRegion(fileSystem);
+        lenient().when(fileSystem.readInode(inodeId)).thenReturn(inode);
         // When
-        var result = inodeTable.get(Inode.Id.of(53));
+        var result = inodeTable.get(inodeId);
         // Then
         assertThat(result).isNotNull();
     }
 
     @Test
-    @Disabled
-    void get_should_useCache_when_searchSameInodeId() {
+    void get_should_useCache_when_searchSameInodeId(@Mock Inode inode) {
         // Given
-        var inodeTable = new InodeTableRegion(fileSystem);
         var inodeId = Inode.Id.of(53);
+        var inodeTable = new InodeTableRegion(fileSystem);
+        lenient().when(fileSystem.readInode(inodeId)).thenReturn(inode);
         // When
         inodeTable.get(inodeId);
         // Then
-        verify(fileSystem).readBlock(any(Block.Id.class));
-        // When
-        inodeTable.get(inodeId);
-        // Then
-        verifyNoMoreInteractions(fileSystem);
+        verify(fileSystem, times(1)).readInode(inodeId);
+        for (int i = 0; i < 5; i++) {
+            // When
+            inodeTable.get(inodeId);
+            // Then
+            verify(fileSystem, times(1)).readInode(inodeId);
+        }
     }
     //endregion
 

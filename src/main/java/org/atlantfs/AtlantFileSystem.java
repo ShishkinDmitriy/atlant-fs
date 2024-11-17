@@ -62,7 +62,6 @@ public class AtlantFileSystem extends FileSystem {
                 var read = channel.read(buffer);
                 statistics.incrementReadCalls();
                 statistics.addReadBytes(read);
-//                assert !buffer.hasRemaining();
                 buffer.flip();
                 this.superBlock = SuperBlock.read(buffer);
                 this.inodeTableRegion = InodeTableRegion.read(this);
@@ -456,7 +455,7 @@ public class AtlantFileSystem extends FileSystem {
         return buffer;
     }
 
-    ByteBuffer readInode(Inode.Id inodeId) {
+    Inode readInode(Inode.Id inodeId) {
         var buffer = getInodeByteBuffer();
         var channel = AtlantFileChannel.get();
         assert channel != null;
@@ -470,7 +469,7 @@ public class AtlantFileSystem extends FileSystem {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return buffer;
+        return Inode.read(this, buffer, inodeId);
     }
 
     int writeBlockEmpty(Block.Id blockId, int offset, int length) {
