@@ -155,7 +155,7 @@ class DeleteTest {
                         // Can't open as already opened
                         return FileVisitResult.CONTINUE;
                     }
-                    log.info(() -> "Writing [file=" + file + "]...");
+                    log.fine(() -> "Writing [file=" + file + "]...");
                     var normalized = normalize(file);
                     var bytes = Files.readAllBytes(file);
                     Files.write(fileSystem.getPath(normalized), bytes, CREATE);
@@ -168,7 +168,7 @@ class DeleteTest {
             Files.walkFileTree(fileSystem.getPath("/"), new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    log.info(() -> "Deleting [file=" + file + "]...");
+                    log.fine(() -> "Deleting [file=" + file + "]...");
                     // When
                     Files.delete(file);
                     // Then
@@ -181,7 +181,7 @@ class DeleteTest {
                     if (dir.toString().equals("/")) {
                         return FileVisitResult.CONTINUE;
                     }
-                    log.info(() -> "Deleting [dir=" + dir + "]...");
+                    log.fine(() -> "Deleting [dir=" + dir + "]...");
                     // When
                     Files.delete(dir);
                     // Then

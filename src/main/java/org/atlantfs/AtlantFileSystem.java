@@ -295,6 +295,7 @@ public class AtlantFileSystem extends FileSystem {
                 var dirEntry = parent.get(fileName);
                 Inode inode = inodeTableRegion.get(dirEntry.getInode());
                 inode.delete();
+                inodeTableRegion.delete(inode.getId());
                 parent.delete(fileName);
             } finally {
                 parent.endWrite();

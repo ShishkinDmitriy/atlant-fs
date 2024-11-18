@@ -167,7 +167,7 @@ class Inode implements FileOperations, DirectoryOperations {
             } else if (isRegularFile()) {
                 ((FileOperations) iBlock).delete();
             }
-            fileSystem.freeInode(id);
+//            fileSystem.freeInode(id);
         } finally {
             endWrite();
         }

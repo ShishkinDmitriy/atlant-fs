@@ -202,7 +202,7 @@ class WriteTest {
                         // Can't open as already opened
                         return FileVisitResult.CONTINUE;
                     }
-                    log.info(() -> "Writing [file=" + file + "]...");
+                    log.fine(() -> "Writing [file=" + file + "]...");
                     var normalized = normalize(file);
                     var bytes = Files.readAllBytes(file);
                     Files.write(fileSystem.getPath(normalized), bytes, CREATE);
@@ -230,7 +230,7 @@ class WriteTest {
                         // Can't open as already opened
                         return FileVisitResult.CONTINUE;
                     }
-                    log.info(() -> "Reading [file=" + file + "]...");
+                    log.fine(() -> "Reading [file=" + file + "]...");
                     var normalized = normalize(file);
                     var original = Files.readAllBytes(file);
                     var atlantPath = fileSystem.getPath(normalized);

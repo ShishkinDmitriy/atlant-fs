@@ -26,6 +26,11 @@ public class PathUtil {
                 .replace('\\', '/');
     }
 
+    public static String denormalize(Path path) {
+        return "C:" + path.toAbsolutePath().toString()
+                .replace('/', '\\');
+    }
+
     public static ArrayList<String> allRegularFiles(FileSystem fileSystem) throws IOException {
         var files = new ArrayList<String>();
         Files.walkFileTree(fileSystem.getPath("/"), new SimpleFileVisitor<>() {
