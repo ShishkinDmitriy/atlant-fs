@@ -148,6 +148,7 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
                 var entryList = readDirEntryList(blockId);
                 entryList.rename(name, newName);
                 writeDirEntryList(blockId, entryList);
+                return;
             } catch (NoSuchFileException _) {
                 // continue
             }
@@ -164,6 +165,7 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
                 var entryList = readDirEntryList(blockId);
                 entryList.delete(name);
                 writeDirEntryList(blockId, entryList);
+                return;
             } catch (NoSuchFileException _) {
                 // continue
             }
@@ -223,6 +225,7 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         var ids = new ArrayList<Block.Id>();
         ids.addAll(indirectIds);
         ids.addAll(dataIds);
+//        assert blocksCount() == dataIds.size();
         inode.getFileSystem().freeBlocks(ids);
     }
 

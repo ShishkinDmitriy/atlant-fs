@@ -39,8 +39,12 @@ public class PathUtil {
     }
 
     public static ArrayList<String> allDirectories(FileSystem fileSystem) throws IOException {
+        return allDirectories(fileSystem, fileSystem.getPath(normalize(projectDir())));
+    }
+
+    public static ArrayList<String> allDirectories(FileSystem fileSystem, Path path) throws IOException {
         var actual = new ArrayList<String>();
-        Files.walkFileTree(fileSystem.getPath(normalize(projectDir())), new SimpleFileVisitor<>() {
+        Files.walkFileTree(path, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                 actual.add(normalize(dir));

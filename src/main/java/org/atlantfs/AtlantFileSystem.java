@@ -94,11 +94,11 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        var atlant = AtlantFileChannel.openForRead(path);
+        var atlant = AtlantFileChannel.openForWrite(path);
         Inode inode = null;
         try {
             inode = locate(dir, FileType.DIRECTORY);
-            inode.beginRead();
+            inode.beginWrite();
             Inode finalInode = inode;
             var iterator = finalInode.iterator();
             return new DirectoryStream<>() {
@@ -122,13 +122,13 @@ public class AtlantFileSystem extends FileSystem {
                 @Override
                 public void close() throws IOException {
                     atlant.close();
-                    finalInode.endRead();
+                    finalInode.endWrite();
                 }
             };
         } catch (IOException | AssertionError e) {
             atlant.close();
             if (inode != null) {
-                inode.endRead();
+                inode.endWrite();
             }
             throw e;
         }

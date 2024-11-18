@@ -78,7 +78,7 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
 
     @Override
     public Iterator<DirEntry> iterator() {
-        return isEmpty() ? Collections.emptyIterator() : entries.iterator();
+        return isEmpty() ? Collections.emptyIterator() : new ArrayList<>(entries).iterator();
     }
 
     @Override
