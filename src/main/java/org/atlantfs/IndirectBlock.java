@@ -83,20 +83,18 @@ final class IndirectBlock<B extends Block> implements Block {
                 indirectBlock.pointers.add(Pointer.of(value, idd -> IndirectBlock.read(fileSystem, idd, depth - 1, reader)));
             }
         }
-        indirectBlock.readSize();
+        indirectBlock.size = indirectBlock.readSize();
         return indirectBlock;
     }
 
     int readSize() {
         if (depth == 0) {
-            size = pointers.size();
-        } else {
-            var full = (pointers.size() - 1) * maxSize(blockSize(), depth - 1);
-            //noinspection unchecked
-            IndirectBlock<B> indirectBlock = (IndirectBlock<B>) pointers.getLast().get();
-            size = full + indirectBlock.readSize();
+            return pointers.size();
         }
-        return size;
+        var full = (pointers.size() - 1) * maxSize(blockSize(), depth - 1);
+        //noinspection unchecked
+        IndirectBlock<B> indirectBlock = (IndirectBlock<B>) pointers.getLast().get();
+        return full + indirectBlock.size;
     }
 
     void flush() {
