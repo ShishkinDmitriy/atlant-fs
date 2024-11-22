@@ -87,15 +87,16 @@ final class IndirectBlock<B extends Block> implements Block {
         return indirectBlock;
     }
 
-    void readSize() {
+    int readSize() {
         if (depth == 0) {
             size = pointers.size();
-            return;
+        } else {
+            var full = (pointers.size() - 1) * maxSize(blockSize(), depth - 1);
+            //noinspection unchecked
+            IndirectBlock<B> indirectBlock = (IndirectBlock<B>) pointers.getLast().get();
+            size = full + indirectBlock.readSize();
         }
-        var full = (pointers.size() - 1) * maxSize(fileSystem.blockSize(), depth - 1);
-        //noinspection unchecked
-        IndirectBlock<B> indirectBlock = (IndirectBlock<B>) pointers.getLast().get();
-        size = full + indirectBlock.size;
+        return size;
     }
 
     void flush() {

@@ -127,13 +127,18 @@ class IndirectBlockTest {
             "           8 |     1 |     3 |      1003 ",
             "           8 |     2 |     0 |      1000 ",
             "           8 |     2 |     7 |      1007 ",
-            "          12 |     2 |     0 |      1000 ", // 3 ids per block
+            "          12 |     0 |     0 |      1000 ", // 3 ids per block
+            "          12 |     0 |     2 |      1002 ",
+            "          12 |     1 |     0 |      1000 ",
+            "          12 |     1 |     8 |      1008 ",
             "          12 |     2 |     0 |      1000 ",
+            "          12 |     2 |    26 |      1026 ",
             "          64 |     0 |     0 |      1000 ", // 16 ids per block
             "          64 |     0 |    15 |      1015 ",
             "          64 |     1 |     0 |      1000 ",
             "          64 |     1 |   255 |      1255 ",
-            "          64 |     1 |   255 |      1255 ",
+            "          64 |     2 |     0 |      1000 ",
+            "          64 |     2 |  4095 |      5095 ",
     }, delimiter = '|')
     @ParameterizedTest
     void get_should_retrieveLeafBlock(int blockSize, int depth, int index, @ConvertWith(BlockMappingTest.BlockIdConverter.class) Block.Id expectedResult) throws BitmapRegionOutOfMemoryException {
@@ -156,6 +161,12 @@ class IndirectBlockTest {
             "           8 |     1 |    4 ",
             "           8 |     2 |    1 ",
             "           8 |     2 |    8 ",
+            "          12 |     0 |    1 ", // 3 ids per block
+            "          12 |     0 |    3 ",
+            "          12 |     1 |    1 ",
+            "          12 |     1 |    9 ",
+            "          12 |     2 |    1 ",
+            "          12 |     2 |   27 ",
             "          64 |     0 |    1 ", // 16 ids per block
             "          64 |     0 |   16 ",
             "          64 |     1 |    1 ",
