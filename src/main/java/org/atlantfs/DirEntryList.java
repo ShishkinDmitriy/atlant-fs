@@ -44,6 +44,10 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         checkInvariant();
     }
 
+    static DirEntryList init(int length) {
+        return new DirEntryList(length);
+    }
+
     static DirEntryList read(ByteBuffer buffer) {
         List<DirEntry> entries = new ArrayList<>();
         var length = buffer.remaining();
@@ -207,7 +211,8 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return false;
     }
 
-    boolean isDirty() {
+    @Override
+    public boolean isDirty() {
         return entries.stream().anyMatch(DirEntry::isDirty);
     }
 
@@ -217,4 +222,8 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return entries;
     }
 
+    @Override
+    public Id id() {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -23,14 +23,24 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
 
     private static final Logger log = Logger.getLogger(BlockMapping.class.getName());
 
-    private final List<Block.Id> addresses;
+    private List<Block.Id> addresses;
     private final Inode inode;
     private final Cache<Coordinates, Block.Id> indirectBlocksCache = new Cache<>();
     private final Cache<Block.Id, DirEntryList> dirEntryListsCache = new Cache<>();
 
+    private List<Block.Pointer<DirEntryListBlock>> directs;
+    private List<Block.Pointer<IndirectBlock<DirEntryListBlock>>> indirects;
+    private Block.Pointer<IndirectBlock<DirEntryList>> indirect1;
+    private Block.Pointer<IndirectBlock<IndirectBlock<DirEntryList>>> indirect2;
+    private Block.Pointer<IndirectBlock<IndirectBlock<IndirectBlock<DirEntryList>>>> indirect3;
+
     BlockMapping(Inode inode, List<Block.Id> addresses) {
         this.inode = inode;
         this.addresses = addresses;
+    }
+
+    public BlockMapping(Inode inode) {
+        this.inode = inode;
     }
 
     static BlockMapping read(Inode inode, ByteBuffer buffer) {
@@ -43,6 +53,28 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         }
         buffer.position(position + Inode.iBlockLength(inode.getFileSystem().inodeSize()));
         return new BlockMapping(inode, blocks);
+    }
+
+    @SuppressWarnings("Convert2MethodRef")
+    static BlockMapping read2(Inode inode, ByteBuffer buffer) {
+        var numberOfAddresses = numberOfAddresses(inode.blockSize(), inode.inodeSize(), inode.blocksCount());
+        var position = buffer.position();
+        assert buffer.remaining() >= numberOfAddresses * Block.Id.LENGTH : "Buffer should have at least [" + numberOfAddresses + "] Block.Id values, but has only [" + buffer.remaining() + "] bytes";
+        var inodeSize = inode.getFileSystem().inodeSize();
+        var blockMapping = new BlockMapping(inode);
+        blockMapping.directs = new ArrayList<>();
+        var level = addressLevel(inode.blockSize(), inodeSize, inode.blocksCount() - 1);
+        for (var i = 0; i < Math.min(numberOfAddresses, numberOfDirectBlocks(inode.inodeSize())); i++) {
+//            blockMapping.directs.add(Block.Pointer.read(buffer,
+//                    id0 -> blockMapping.readDirEntryList(id0)));
+        }
+        for (int i = 0; i < level; i++) {
+            int depth = i;
+            var pointer = Block.Pointer.read(buffer, id -> blockMapping.readIndirectBlock(id, depth));
+            blockMapping.indirects.add(pointer);
+        }
+        buffer.position(position + Inode.iBlockLength(inodeSize));
+        return blockMapping;
     }
 
     static BlockMapping init(Inode inode, Data data) throws BitmapRegionOutOfMemoryException {
@@ -62,6 +94,16 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         inode.writeBlock(reserved, dirEntryList::write);
         blocks.add(reserved);
         return new BlockMapping(inode, blocks);
+    }
+
+    static BlockMapping init2(Inode inode, DirEntryList dirEntryList) throws BitmapRegionOutOfMemoryException {
+        dirEntryList.resize(inode.blockSize());
+        var reserved = inode.reserveBlock();
+        inode.writeBlock(reserved, dirEntryList::write);
+        var blockMapping = new BlockMapping(inode);
+        blockMapping.directs = new ArrayList<>();
+        blockMapping.directs.add(Block.Pointer.of(reserved, blockMapping::readDirEntryListBlock));
+        return blockMapping;
     }
 
     @Override
@@ -368,6 +410,20 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         return blockId;
     }
 
+    DirEntryListBlock resolve2(int blockNumber) {
+        log.finer(() -> "Resolving [blockNumber=" + blockNumber + ", inodeId=" + inode.getId() + ", addresses=" + addresses + "]...");
+        if (blockNumber >= blocksCount()) {
+            throw new IndexOutOfBoundsException("Block number [blockNumber=" + blockNumber + "] is out of bounds [blocksCount=" + blocksCount() + "]");
+        }
+        var offsets = addressOffsets(blockSize(), inodeSize(), blockNumber);
+        if (offsets.isEmpty()) {
+            return directs.get(blockNumber).get();
+        } else {
+            var level = offsets.size(); // 1, 2 or 3
+            return indirects.get(level - 1).get().get(offsets);
+        }
+    }
+
     Block.Id allocate() throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
         checkInvariant();
         var blockSize = blockSize();
@@ -401,6 +457,31 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         checkInvariant();
         log.fine(() -> "Successfully allocated [blockNumber=" + blocksCount + ", blockId=" + result + "] by [" + offsets.size() + "] level indirect");
         return result;
+    }
+
+    DirEntryListBlock allocate2() throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+        var blocksCount = blocksCount();
+        log.finer(() -> "Allocating new block [blockNumber=" + blocksCount + ", inodeId=" + inode.getId() + ", addresses=" + addresses + "]...");
+        var offsets = addressOffsets(blockSize(), inodeSize(), blocksCount);
+        var fileSystem = inode.getFileSystem();
+        var dirEntryList = DirEntryListBlock.init(fileSystem);
+        if (offsets.isEmpty()) {
+            Block.Pointer<DirEntryListBlock> pointer = Block.Pointer.of(dirEntryList, this::readDirEntryListBlock);
+            directs.add(pointer);
+        } else {
+            var level = offsets.size(); // 1, 2 or 3
+            if (indirects.size() < level) {
+                // Init new IndirectBlock
+                IndirectBlock<DirEntryListBlock> indirectBlock = IndirectBlock.init(fileSystem, level, this::readDirEntryListBlock, dirEntryList);
+                Block.Pointer<IndirectBlock<DirEntryListBlock>> pointer = Block.Pointer.of(indirectBlock, i -> readIndirectBlock(i, level - 1));
+                indirects.add(pointer);
+            }
+            // Add to existing IndirectBlock
+            return indirects.get(level - 1)
+                    .get()
+                    .get(offsets);
+        }
+        return dirEntryList;
     }
 
     private static int numberOfTrailingZeros(List<Integer> offsets) {
@@ -450,11 +531,19 @@ class BlockMapping implements DirectoryOperations, FileOperations, IBlock {
         return inode.getFileSystem().writeBlockData(blockId, offset, buffer);
     }
 
+    IndirectBlock<DirEntryListBlock> readIndirectBlock(Block.Id blockId, int depth) {
+        return IndirectBlock.read(inode.getFileSystem(), blockId, depth, this::readDirEntryListBlock);
+    }
+
     DirEntryList readDirEntryList(Block.Id blockId) {
         return dirEntryListsCache.computeIfAbsent(blockId, key -> {
             var buffer = inode.readBlock(key);
             return DirEntryList.read(buffer);
         });
+    }
+
+    DirEntryListBlock readDirEntryListBlock(Block.Id blockId) {
+        return DirEntryListBlock.read(inode.getFileSystem(), blockId);
     }
 
     private void writeDirEntryList(Block.Id reserved, DirEntryList dirEntryList) {

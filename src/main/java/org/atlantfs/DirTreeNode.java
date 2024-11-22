@@ -43,6 +43,16 @@ class DirTreeNode implements Block {
         return true;
     }
 
+    @Override
+    public Id id() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isDirty() {
+        throw new UnsupportedOperationException();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     int getDepth() {

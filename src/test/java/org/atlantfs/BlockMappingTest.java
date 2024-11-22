@@ -440,7 +440,7 @@ class BlockMappingTest {
         });
     }
 
-    private static class BlockIdListConverter implements ArgumentConverter {
+    static class BlockIdListConverter implements ArgumentConverter {
 
         private final BlockIdConverter blockIdConverter = new BlockIdConverter();
 
@@ -457,7 +457,24 @@ class BlockMappingTest {
 
     }
 
-    private static class BlockIdConverter implements ArgumentConverter {
+    static class BlockIdLis0tListConverter implements ArgumentConverter {
+
+        private final BlockIdListConverter blockIdListConverter = new BlockIdListConverter();
+
+        @Override
+        public final List<List<Block.Id>> convert(Object source, ParameterContext context) throws ArgumentConversionException {
+            if (source == null) {
+                return Collections.emptyList();
+            }
+            return Arrays.stream(source.toString().split(";"))
+                    .map(String::trim)
+                    .map(str -> blockIdListConverter.convert(str, context))
+                    .toList();
+        }
+
+    }
+
+    static class BlockIdConverter implements ArgumentConverter {
 
         @Override
         public final Block.Id convert(Object source, ParameterContext context) throws ArgumentConversionException {
