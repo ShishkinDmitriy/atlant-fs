@@ -53,6 +53,11 @@ class DirTreeNode implements Block {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void flush() {
+        throw new UnsupportedOperationException();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     int getDepth() {

@@ -1,6 +1,6 @@
 package org.atlantfs;
 
-public class DirectoryOutOfMemoryException extends AtlantFileSystemException {
+public class DirectoryOutOfMemoryException extends AbstractOutOfMemoryException {
 
     public DirectoryOutOfMemoryException() {
     }

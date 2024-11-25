@@ -65,8 +65,8 @@ class IndirectBlockTest {
     @ParameterizedTest
     void init_should_createChainOfIndirectBlocks(
             int depth,
-            @ConvertWith(BlockMappingTest.BlockIdListConverter.class) List<Block.Id> expectedBlockIds,
-            @ConvertWith(BlockMappingTest.BlockIdLis0tListConverter.class) List<List<Block.Id>> expectedDirtyBlockIds,
+            @ConvertWith(BlockTest.BlockIdListConverter.class) List<Block.Id> expectedBlockIds,
+            @ConvertWith(BlockTest.BlockIdLis0tListConverter.class) List<List<Block.Id>> expectedDirtyBlockIds,
             @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedDepths) throws BitmapRegionOutOfMemoryException {
         // When
         var result = IndirectBlock.init(fileSystem, depth, reader, leaf);
@@ -141,10 +141,10 @@ class IndirectBlockTest {
             "          64 |     2 |  4095 |      5095 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void get_should_retrieveLeafBlock(int blockSize, int depth, int index, @ConvertWith(BlockMappingTest.BlockIdConverter.class) Block.Id expectedResult) throws BitmapRegionOutOfMemoryException {
+    void get_should_retrieveLeafBlock(int blockSize, int depth, int index, @ConvertWith(BlockTest.BlockIdConverter.class) Block.Id expectedResult) throws BitmapRegionOutOfMemoryException {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
-        var root = constructFullTree(blockSize, depth);
+        var root = constructTree(blockSize, depth);
         // When
         var result = root.get(index);
         // Then
@@ -232,7 +232,7 @@ class IndirectBlockTest {
             "          64 |     2 | 4095 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void add_should_appendNEwLeafBlock(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    void add_should_appendNEwLeafBlock(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
@@ -256,18 +256,18 @@ class IndirectBlockTest {
             "          64 |     2 | 4096 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void add_should_throw(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    void add_should_throwIndirectBlockOutOfMemoryException_when_sizeBecomeBiggerThanLimit(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
         assertThat(root.size()).isEqualTo(size);
         // When Then
         assertThatThrownBy(() -> root.add(leaf))
-                .isInstanceOf(IndexOutOfBoundsException.class);
+                .isInstanceOf(IndirectBlockOutOfMemoryException.class);
     }
     //endregion
 
-    private IndirectBlock<?> constructFullTree(int blockSize, int depth) throws BitmapRegionOutOfMemoryException {
+    private IndirectBlock<?> constructTree(int blockSize, int depth) throws BitmapRegionOutOfMemoryException {
         return constructTree(blockSize, depth, IndirectBlock.maxSize(blockSize, depth));
     }
 
@@ -280,14 +280,14 @@ class IndirectBlockTest {
         var id = reserveForIndirect();
         var block = new IndirectBlock<>(id, fileSystem, depth, reader);
         if (depth > 0) {
-            var pow = IndirectBlock.maxSize(blockSize, depth - 1);
-            var bounds = lastIndex / pow;
+            var maxSize = IndirectBlock.maxSize(blockSize, depth - 1);
+            var bounds = lastIndex / maxSize;
             for (int i = 0; i < bounds; i++) {
-                var subtree = constructTreeInternal(blockSize, depth - 1, pow - 1);
+                var subtree = constructTreeInternal(blockSize, depth - 1, maxSize - 1);
                 var pointer = Block.Pointer.of(subtree, reader);
                 block.addPointer(pointer);
             }
-            var subtree = constructTreeInternal(blockSize, depth - 1, lastIndex % pow);
+            var subtree = constructTreeInternal(blockSize, depth - 1, lastIndex % maxSize);
             var pointer = Block.Pointer.of(subtree, reader);
             block.addPointer(pointer);
         } else {

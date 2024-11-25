@@ -14,6 +14,8 @@ interface Block {
 
     boolean isDirty();
 
+    void flush();
+
     record Id(int value) implements AbstractId {
 
         private static final Logger log = Logger.getLogger(Block.Id.class.getName());

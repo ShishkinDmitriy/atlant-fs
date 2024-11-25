@@ -134,15 +134,15 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    private Inode locate(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+    private Inode locate(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
         return locate(absolutePath, null, new HashSet<>(Arrays.asList(options)));
     }
 
-    private Inode locate(AtlantPath absolutePath, FileType fileType, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+    private Inode locate(AtlantPath absolutePath, FileType fileType, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
         return locate(absolutePath, fileType, new HashSet<>(Arrays.asList(options)));
     }
 
-    private Inode locate(AtlantPath absolutePath, FileType fileType, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException {
+    private Inode locate(AtlantPath absolutePath, FileType fileType, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
         if (absolutePath.equals(absolutePath.getRoot())) {
             return inodeTableRegion.root();
         }

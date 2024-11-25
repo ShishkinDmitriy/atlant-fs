@@ -97,7 +97,11 @@ final class IndirectBlock<B extends Block> implements Block {
         return full + indirectBlock.size;
     }
 
-    void flush() {
+    @Override
+    public void flush() {
+        if (!isDirty()) {
+            return;
+        }
         fileSystem.writeBlock(id, buffer -> {
             assert buffer.remaining() % Id.LENGTH == 0 : "Buffer should be aligned with BLock.Id size";
             pointers.forEach(pointer -> pointer.write(buffer));
@@ -107,23 +111,6 @@ final class IndirectBlock<B extends Block> implements Block {
         });
     }
 
-    B get(List<Integer> indexes) {
-        //region preconditions
-        if (indexes.size() != depth) throw new IllegalArgumentException("indexes");
-        //endregion
-        IndirectBlock<?> indirectBlock = this;
-        for (int i = 0; i < indexes.size() - 1; i++) {
-            var index = indexes.get(i);
-            //noinspection unchecked
-            var pointer = (Pointer<IndirectBlock<B>>) indirectBlock.pointers.get(index);
-            indirectBlock = pointer.get();
-        }
-        var index = indexes.get(indexes.getLast());
-        //noinspection unchecked
-        var pointer = (Pointer<B>) indirectBlock.pointers.get(index);
-        return pointer.get();
-    }
-
     B get(int index) {
         //region preconditions
         if (index < 0) throw new IndexOutOfBoundsException();
@@ -131,34 +118,34 @@ final class IndirectBlock<B extends Block> implements Block {
         //endregion
         var idsPerBlock = idsPerBlock(blockSize());
         if (depth > 0) {
-            var pow = maxSize(blockSize(), depth - 1);
-            var offset = index / pow;
+            var maxSize = maxSize(blockSize(), depth - 1);
+            var offset = index / maxSize;
             //noinspection unchecked
             var pointer = (Pointer<IndirectBlock<B>>) pointers.get(offset);
             var indirectBlock = pointer.get();
-            return indirectBlock.get(index % pow);
+            return indirectBlock.get(Integer.remainderUnsigned(index, maxSize));
         } else {
             if (index >= idsPerBlock) throw new IndexOutOfBoundsException();
-            var offset = index % idsPerBlock;
+            var offset = Integer.remainderUnsigned(index, idsPerBlock);
             //noinspection unchecked
             var pointer = (Pointer<B>) pointers.get(offset);
             return pointer.get();
         }
     }
 
-    int add(B leaf) throws BitmapRegionOutOfMemoryException {
+    int add(B leaf) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         //region preconditions
-        if (size + 1 > maxSize(blockSize(), depth)) throw new IndexOutOfBoundsException();
+        if (size + 1 > maxSize(blockSize(), depth)) throw new IndirectBlockOutOfMemoryException("");
         //endregion
         var index = size;
-        addInternal(index, leaf);
+        add(index, leaf);
         return index;
     }
 
-    private void addInternal(int index, B leaf) throws BitmapRegionOutOfMemoryException {
+    private void add(int index, B leaf) throws BitmapRegionOutOfMemoryException {
         if (depth > 0) {
-            var pow = maxSize(blockSize(), depth - 1);
-            var offset = index / pow;
+            var maxSize = maxSize(blockSize(), depth - 1);
+            var offset = Integer.divideUnsigned(index, maxSize);
             if (pointers.size() <= offset) {
                 var newChain = init(fileSystem, depth - 1, leafReader, leaf);
                 pointers.add(Pointer.of(newChain, this::indirectReader));
@@ -166,13 +153,26 @@ final class IndirectBlock<B extends Block> implements Block {
                 //noinspection unchecked
                 var pointer = (Pointer<IndirectBlock<B>>) pointers.get(offset);
                 var indirectBlock = pointer.get();
-                indirectBlock.addInternal(index % pow, leaf);
+                indirectBlock.add(Integer.remainderUnsigned(index, maxSize), leaf);
             }
         } else {
             if (index >= idsPerBlock(blockSize())) throw new IndexOutOfBoundsException();
             pointers.add(Pointer.of(leaf, leafReader));
         }
         size++;
+    }
+
+    void delete() {
+        fileSystem.freeBlock(id);
+        if (depth == 0) {
+            var ids = pointers.stream().map(Pointer::id).toList();
+            fileSystem.freeBlocks(ids);
+            return;
+        }
+        pointers.stream()
+                .map(Pointer::get)
+                .map(block -> (IndirectBlock<?>) block)
+                .forEach(IndirectBlock::delete);
     }
 
     void addPointer(Pointer<?> pointer) {
@@ -201,6 +201,10 @@ final class IndirectBlock<B extends Block> implements Block {
 
     private int blockSize() {
         return fileSystem.blockSize();
+    }
+
+    int maxSize() {
+        return maxSize(blockSize(), depth);
     }
 
     static int maxSize(int blockSize, int depth) {

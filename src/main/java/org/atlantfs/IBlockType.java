@@ -7,13 +7,13 @@ enum IBlockType {
 
     FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (inode, buffer) -> Data.read(buffer, (int) inode.getSize())),
 
-    FILE_BLOCK_MAPPING(2, FileType.REGULAR_FILE, BlockMapping::read),
+    FILE_BLOCK_MAPPING(2, FileType.REGULAR_FILE, FileBlockMapping::read),
 
     FILE_EXTENT_TREE(3, FileType.REGULAR_FILE, null), // Unsupported yet
 
     DIR_INLINE_LIST(4, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
 
-    DIR_BLOCK_MAPPING(5, FileType.DIRECTORY, BlockMapping::read),
+    DIR_BLOCK_MAPPING(5, FileType.DIRECTORY, DirBlockMapping::read),
 
     DIR_TREE(6, FileType.DIRECTORY, (inode, buffer) -> DirTree.read(inode.getFileSystem(), buffer)); // Unsupported yet
 

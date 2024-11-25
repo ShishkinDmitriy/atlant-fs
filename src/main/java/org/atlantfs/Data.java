@@ -1,12 +1,16 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryNotEmptyException;
 
 class Data implements IBlock, FileOperations {
 
-    private final byte[] data;
-    private int length;
+    private final byte[] data; // Has size of block
+    private int length; // Less than block size, how many is used
+
+    Data(int length) {
+        this.data = new byte[length];
+        this.length = length;
+    }
 
     Data(byte[] data, int length) {
         this.data = data;
@@ -29,7 +33,7 @@ class Data implements IBlock, FileOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException, DataOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
         var targetLength = position + buffer.remaining();
         if (targetLength > data.length) {
             throw new DataOutOfMemoryException();
@@ -44,18 +48,28 @@ class Data implements IBlock, FileOperations {
 
     @Override
     public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
-        if (position >= length) {
+        if (position >= data.length) {
             return 0;
         }
-        var bound = Math.min(buffer.remaining(), length - (int) position);
+        var bound = Math.min(buffer.remaining(), data.length - (int) position);
         for (int i = 0; i < bound; i++) {
             buffer.put(data[(int) (position + i)]);
         }
         return bound;
     }
 
+    int size() {
+        return length;
+    }
+
+    byte[] bytes() {
+        var result = new byte[length];
+        System.arraycopy(data, 0, result, 0, length);
+        return result;
+    }
+
     @Override
-    public void delete() throws DirectoryNotEmptyException {
+    public void delete() {
 
     }
 

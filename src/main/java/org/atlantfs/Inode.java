@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
@@ -106,7 +107,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public DirEntry add(Id inode, FileType fileType, String name) throws AbstractOutOfMemoryException {
         try {
             beginWrite();
             var result = directoryOperations().add(inode, fileType, name);
@@ -133,7 +134,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, AbstractOutOfMemoryException {
         try {
             beginWrite();
             directoryOperations().rename(name, newName);
@@ -159,7 +160,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     @Override
-    public void delete() throws DirectoryNotEmptyException {
+    public void delete() throws IOException {
         try {
             beginWrite();
             if (isDirectory()) {
@@ -174,7 +175,7 @@ class Inode implements FileOperations, DirectoryOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DirectoryOutOfMemoryException, DataOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DataOutOfMemoryException, IndirectBlockOutOfMemoryException {
         var initial = buffer.position();
         try {
             beginWrite();
@@ -205,7 +206,7 @@ class Inode implements FileOperations, DirectoryOperations {
         }
     }
 
-    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException {
+    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
         assert iBlockType == IBlockType.DIR_INLINE_LIST : "Only DIR_INLINE_LIST can be upgraded";
         assert blocksCount == 0 : "Should be no blocks before upgrade";
@@ -214,7 +215,7 @@ class Inode implements FileOperations, DirectoryOperations {
 //        dirEntryList.resize(blockSize);
 //        var reserved = reserveBlock();
 //        writeBlock(reserved, dirEntryList::write);
-        iBlock = BlockMapping.init(this, dirEntryList);
+        iBlock = DirBlockMapping.init(this, dirEntryList);
         iBlockType = IBlockType.DIR_BLOCK_MAPPING;
         size = (long) blocksCount * blockSize();
         dirty = true;
@@ -222,13 +223,13 @@ class Inode implements FileOperations, DirectoryOperations {
         checkInvariant();
     }
 
-    private void upgradeInlineData() throws BitmapRegionOutOfMemoryException {
+    private void upgradeInlineData() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline data to block mapping...");
         assert iBlockType == IBlockType.FILE_INLINE_DATA : "Only FILE_INLINE_DATA can be upgraded";
         assert size >= 0 : "Size can be 0 if were no content in file or positive if there is small amount";
         assert blocksCount == 0 : "Should be no blocks before upgrade";
         var data = (Data) iBlock;
-        iBlock = BlockMapping.init(this, data);
+        iBlock = FileBlockMapping.init(this, data);
         iBlockType = IBlockType.FILE_BLOCK_MAPPING;
         dirty = true;
         assert blocksCount == 0 || blocksCount == 1 : "Can be zero if upgraded from empty data or 1 if had content before";

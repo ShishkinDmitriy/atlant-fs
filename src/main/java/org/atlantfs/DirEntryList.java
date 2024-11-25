@@ -216,6 +216,11 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return entries.stream().anyMatch(DirEntry::isDirty);
     }
 
+    @Override
+    public void flush() {
+        throw new UnsupportedOperationException();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     List<DirEntry> getEntries() {
