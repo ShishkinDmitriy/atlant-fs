@@ -7,7 +7,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements DirectoryOperations {
+class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements DirIblock {
 
     private static final Logger log = Logger.getLogger(DirBlockMapping.class.getName());
 

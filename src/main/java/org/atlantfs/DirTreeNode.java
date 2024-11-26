@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -55,6 +56,11 @@ class DirTreeNode implements Block {
 
     @Override
     public void flush() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void delete() throws IOException {
         throw new UnsupportedOperationException();
     }
 

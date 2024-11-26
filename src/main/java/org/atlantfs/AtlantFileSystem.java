@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -89,120 +90,120 @@ public class AtlantFileSystem extends FileSystem {
 
     void createDirectory(AtlantPath dir) throws IOException {
         try (var _ = AtlantFileChannel.openForWrite(path)) {
-            locate(dir, FileType.DIRECTORY, CREATE_NEW);
+            var _ = locateDir(dir, CREATE_NEW);
         }
     }
 
     public DirectoryStream<Path> newDirectoryStream(AtlantPath dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
         var atlant = AtlantFileChannel.openForWrite(path);
-        Inode inode = null;
         try {
-            inode = locate(dir, FileType.DIRECTORY);
-            inode.beginWrite();
-            Inode finalInode = inode;
-            var iterator = finalInode.iterator();
-            return new DirectoryStream<>() {
-                @Override
-                public Iterator<Path> iterator() {
-                    return new Iterator<>() {
+            var dirInode = locateDir(dir);
+            try {
+                dirInode.beginWrite();
+                var iterator = dirInode.iterator();
+                return new DirectoryStream<>() {
+                    @Override
+                    public Iterator<Path> iterator() {
+                        return new Iterator<>() {
 
-                        @Override
-                        public boolean hasNext() {
-                            return iterator.hasNext();
-                        }
+                            @Override
+                            public boolean hasNext() {
+                                return iterator.hasNext();
+                            }
 
-                        @Override
-                        public Path next() {
-                            return getPath(dir.toString(), iterator.next().getName());
-                        }
+                            @Override
+                            public Path next() {
+                                return getPath(dir.toString(), iterator.next().getName());
+                            }
 
-                    };
-                }
+                        };
+                    }
 
-                @Override
-                public void close() throws IOException {
-                    atlant.close();
-                    finalInode.endWrite();
-                }
-            };
-        } catch (IOException | AssertionError e) {
-            atlant.close();
-            if (inode != null) {
-                inode.endWrite();
+                    @Override
+                    public void close() throws IOException {
+                        atlant.close();
+                        dirInode.endWrite();
+                    }
+                };
+            } catch (Exception | AssertionError e) {
+                dirInode.endWrite();
+                throw e;
             }
+        } catch (IOException e) {
+            atlant.close();
             throw e;
         }
     }
 
-    private Inode locate(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
-        return locate(absolutePath, null, new HashSet<>(Arrays.asList(options)));
+    private DirInode locateDir(AtlantPath absolutePath) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+        return locateDir(absolutePath, Set.of());
     }
 
-    private Inode locate(AtlantPath absolutePath, FileType fileType, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
-        return locate(absolutePath, fileType, new HashSet<>(Arrays.asList(options)));
+    private DirInode locateDir(AtlantPath absolutePath, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+        return locateDir(absolutePath, new HashSet<>(Arrays.asList(options)));
     }
 
-    private Inode locate(AtlantPath absolutePath, FileType fileType, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private DirInode locateDir(AtlantPath absolutePath, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
         if (absolutePath.equals(absolutePath.getRoot())) {
             return root();
         }
-        var inode = root();
-        for (Path path : absolutePath.getParent()) {
+        var dirInode = root();
+        for (Path path : absolutePath) {
             var fileName = path.getFileName().toString();
             try {
-                DirEntry dirEntry = inode.get(fileName);
-                inode = findInode(dirEntry.getInode());
+                dirInode = findDirInode(dirInode.get(fileName).getInode());
             } catch (NoSuchFileException e) {
                 if (!options.contains(CREATE) && !options.contains(CREATE_NEW)) {
                     throw new NoSuchFileException(path.toString());
                 }
                 var newInode = inodeTableRegion.createDirectory();
-                inode.addDirectory(newInode.getId(), fileName);
-                inode = newInode;
+                dirInode.addDirectory(newInode.getId(), fileName);
+                dirInode = newInode;
             }
         }
+        return dirInode;
+    }
+
+    private FileInode locateFile(AtlantPath absolutePath, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+        var dirInode = locateDir(absolutePath.getParent(), options);
         var fileName = absolutePath.getFileName().toString();
         try {
-            DirEntry dirEntry = inode.get(fileName);
+            DirEntry dirEntry = dirInode.get(fileName);
             if (options.contains(CREATE_NEW)) {
                 throw new FileAlreadyExistsException(path.toString());
             }
-            inode = findInode(dirEntry.getInode());
-            if (fileType != null && inode.getFileType() != fileType) {
-                throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists");
-            }
-            return inode;
+            return findFileInode(dirEntry.getInode());
         } catch (NoSuchFileException e) {
             if (!options.contains(CREATE) && !options.contains(CREATE_NEW)) {
                 throw new NoSuchFileException(path.toString());
             }
-            return switch (fileType) {
-                case DIRECTORY -> {
-                    var directory = inodeTableRegion.createDirectory();
-                    inode.addDirectory(directory.getId(), fileName);
-                    yield directory;
-                }
-                case REGULAR_FILE -> {
-                    var regularFile = inodeTableRegion.createFile();
-                    inode.addRegularFile(regularFile.getId(), fileName);
-                    yield regularFile;
-                }
-                case UNKNOWN -> throw new IllegalArgumentException("Unsupported type");
-            };
+            var fileInode = inodeTableRegion.createFile();
+            dirInode.addRegularFile(fileInode.getId(), fileName);
+            return fileInode;
         }
+    }
+
+    private Inode<?> locateAny(AtlantPath absolutePath) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+        if (absolutePath.equals(absolutePath.getRoot())) {
+            return root();
+        }
+        var dirInode = locateDir(absolutePath.getParent());
+        var fileName = absolutePath.getFileName().toString();
+        DirEntry dirEntry = dirInode.get(fileName);
+        return inodeTableRegion.get(dirEntry.getInode());
     }
 
     public SeekableByteChannel newByteChannel(AtlantPath absolutePath, Set<? extends OpenOption> options, FileAttribute<?>[] attrs) throws IOException {
         var atlant = options.contains(WRITE) ? AtlantFileChannel.openForWrite(path) : AtlantFileChannel.openForRead(path);
-        Inode inode = null;
+        FileInode fileInode = null;
         try {
-            inode = locate(absolutePath, FileType.REGULAR_FILE, options);
+            fileInode = locateFile(absolutePath, options);
             if (options.contains(WRITE) || options.contains(APPEND)) {
-                inode.beginWrite();
+                fileInode.beginWrite();
             } else {
-                inode.beginRead();
+                fileInode.beginRead();
             }
-            Inode finalInode = inode;
+            FileInode finalInode = fileInode;
             return new SeekableByteChannel() {
 
                 private long position;
@@ -275,11 +276,11 @@ public class AtlantFileSystem extends FileSystem {
             };
         } catch (IOException | AssertionError e) {
             atlant.close();
-            if (inode != null) {
+            if (fileInode != null) {
                 if (options.contains(WRITE) || options.contains(APPEND)) {
-                    inode.endWrite();
+                    fileInode.endWrite();
                 } else {
-                    inode.endRead();
+                    fileInode.endRead();
                 }
             }
             throw e;
@@ -288,12 +289,12 @@ public class AtlantFileSystem extends FileSystem {
 
     void delete(AtlantPath absolutePath) throws IOException {
         try (var _ = AtlantFileChannel.openForWrite(path)) {
-            Inode parent = locate((AtlantPath) absolutePath.getParent(), FileType.DIRECTORY);
+            DirInode parent = locateDir(absolutePath.getParent());
             try {
                 parent.beginWrite();
                 var fileName = absolutePath.getFileName().toString();
                 var dirEntry = parent.get(fileName);
-                Inode inode = inodeTableRegion.get(dirEntry.getInode());
+                Inode<?> inode = inodeTableRegion.get(dirEntry.getInode());
                 inode.delete();
                 inodeTableRegion.delete(inode.getId());
                 parent.delete(fileName);
@@ -375,7 +376,7 @@ public class AtlantFileSystem extends FileSystem {
     }
 
     @Override
-    public WatchService newWatchService() throws IOException {
+    public WatchService newWatchService() {
         return null;
     }
 
@@ -410,12 +411,24 @@ public class AtlantFileSystem extends FileSystem {
         return inodeSize() - Inode.MIN_LENGTH;
     }
 
-    Inode root() {
+    DirInode root() {
         return inodeTableRegion.root();
     }
 
-    Inode findInode(Inode.Id inodeId) {
-        return inodeTableRegion.get(inodeId);
+    DirInode findDirInode(Inode.Id inodeId) throws FileAlreadyExistsException {
+        var inode = inodeTableRegion.get(inodeId);
+        if (inode instanceof DirInode dirInode) {
+            return dirInode;
+        }
+        throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists, expected [" + FileType.DIRECTORY + "]");
+    }
+
+    FileInode findFileInode(Inode.Id inodeId) throws FileAlreadyExistsException {
+        var inode = inodeTableRegion.get(inodeId);
+        if (inode instanceof FileInode fileInode) {
+            return fileInode;
+        }
+        throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists, expected [" + FileType.REGULAR_FILE + "]");
     }
 
     Block.Id reserveBlock() throws BitmapRegionOutOfMemoryException {
@@ -480,7 +493,7 @@ public class AtlantFileSystem extends FileSystem {
         return buffer;
     }
 
-    Inode readInode(Inode.Id inodeId) {
+    Inode<?> readInode(Inode.Id inodeId) {
         var buffer = getInodeByteBuffer();
         var channel = AtlantFileChannel.get();
         assert channel != null;
@@ -499,19 +512,6 @@ public class AtlantFileSystem extends FileSystem {
             throw new RuntimeException(e);
         }
         return Inode.read(this, buffer, inodeId);
-    }
-
-    int writeBlockEmpty(Block.Id blockId, int offset, int length) {
-        assert offset >= 0;
-        assert offset < blockSize();
-        assert length >= 0;
-        log.fine(() -> "Writing empty data into [blockId=" + blockId + ", offset=" + offset + ", length=" + length + "]...");
-        return writeBlock(blockId, offset, writeBuffer -> writeBuffer.put(new byte[length]));
-    }
-
-    int writeBlockData(Block.Id blockId, int offset, ByteBuffer buffer) {
-        log.fine(() -> "Writing data into [blockId=" + blockId + ", offset=" + offset + ", bufferRemaining=" + buffer.remaining() + "]...");
-        return writeBlock(blockId, offset, writeBuffer -> writeBuffer.put(buffer));
     }
 
     int writeBlock(Block.Id blockId, Consumer<ByteBuffer> consumer) {
@@ -576,7 +576,7 @@ public class AtlantFileSystem extends FileSystem {
 
     public AtlantFileAttributes readAttributes(AtlantPath absolutePath, LinkOption[] options) throws IOException {
         try (var _ = AtlantFileChannel.openForRead(path)) {
-            var inode = locate(absolutePath);
+            var inode = locateAny(absolutePath);
             // TODO: Add lock
             return AtlantFileAttributes.from(inode);
         }

@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 interface IBlock {
@@ -11,5 +12,7 @@ interface IBlock {
     void flush(ByteBuffer buffer);
 
     IBlockType type();
+
+    void delete() throws IOException;
 
 }

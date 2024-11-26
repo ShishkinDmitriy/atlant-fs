@@ -71,10 +71,6 @@ class Data implements FileOperations {
         return result;
     }
 
-    @Override
-    public void delete() {
-    }
-
     boolean hasData() {
         return length > 0;
     }

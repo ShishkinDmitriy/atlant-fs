@@ -130,11 +130,6 @@ final class DirEntryList implements DirectoryOperations {
         checkInvariant();
     }
 
-    @Override
-    public void delete() throws DirectoryNotEmptyException {
-
-    }
-
     void delete(int index) {
         log.fine(() -> "Deleting entry [index=" + index + "]...");
         var entry = entries.get(index);

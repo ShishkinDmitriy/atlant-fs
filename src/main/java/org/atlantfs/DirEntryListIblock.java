@@ -5,7 +5,7 @@ import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirEntryListIblock implements IBlock, DirectoryOperations {
+class DirEntryListIblock implements DirIblock {
 
     private final DirEntryList entryList;
 
@@ -64,7 +64,6 @@ class DirEntryListIblock implements IBlock, DirectoryOperations {
 
     @Override
     public void delete() throws DirectoryNotEmptyException {
-        entryList.delete();
     }
 
     @Override

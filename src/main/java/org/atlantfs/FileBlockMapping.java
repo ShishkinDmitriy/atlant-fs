@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
-class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOperations {
+class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIblock {
 
     private static final Logger log = Logger.getLogger(FileBlockMapping.class.getName());
 

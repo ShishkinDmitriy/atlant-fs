@@ -120,7 +120,8 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
         throw new IndexOutOfBoundsException("Block number [blockNumber=" + blockNumber + "] is out of bounds [blocksCount=" + blocksCount() + "]");
     }
 
-    protected void delete() throws IOException {
+    @Override
+    public void delete() throws IOException {
         var directIds = directs.stream()
                 .map(Block.Pointer::id)
                 .toList();

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 final class IndirectBlock<B extends Block> implements Block {
 
@@ -168,7 +167,8 @@ final class IndirectBlock<B extends Block> implements Block {
         size++;
     }
 
-    void delete() {
+    @Override
+    public void delete() {
         fileSystem.freeBlock(id);
         if (depth == 0) {
             var ids = pointers.stream().map(Pointer::id).toList();

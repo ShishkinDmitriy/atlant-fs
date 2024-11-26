@@ -82,7 +82,6 @@ class DirEntryListBlock implements Block, DirectoryOperations {
 
     @Override
     public void delete() throws DirectoryNotEmptyException {
-        entryList.delete();
     }
 
 }

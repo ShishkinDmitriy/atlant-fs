@@ -2,43 +2,33 @@ package org.atlantfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.NoSuchFileException;
-import java.util.Iterator;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
-class Inode implements FileOperations, DirectoryOperations {
+abstract class Inode<B extends IBlock> {
 
     private static final Logger log = Logger.getLogger(Inode.class.getName());
 
     static final int MIN_LENGTH = 8 + 4 + IBlockType.LENGTH + 3;
 
-    private final AtlantFileSystem fileSystem;
+    protected final AtlantFileSystem fileSystem;
 
-    private final transient Inode.Id id;
+    protected final transient Id id;
 
-    private IBlock iBlock;
+    protected B iBlock;
 
-    private boolean dirty;
+    protected boolean dirty;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    private Inode(AtlantFileSystem fileSystem, Id id, IBlock iBlock) {
+    protected Inode(AtlantFileSystem fileSystem, Id id, B iBlock) {
         this.fileSystem = fileSystem;
         this.id = id;
         this.iBlock = iBlock;
         checkInvariant();
     }
 
-    static Inode createRegularFile(AtlantFileSystem fileSystem, Inode.Id id) {
-        return new Inode(fileSystem, id, DataIblock.init(fileSystem));
-    }
-
-    static Inode createDirectory(AtlantFileSystem fileSystem, Inode.Id id) {
-        return new Inode(fileSystem, id, DirEntryListIblock.init(fileSystem));
-    }
-
-    static Inode read(AtlantFileSystem fileSystem, ByteBuffer buffer, Inode.Id id) {
+    static Inode<?> read(AtlantFileSystem fileSystem, ByteBuffer buffer, Id id) {
         assert buffer.remaining() == fileSystem.inodeSize() : "Read expects [inodeSize=" + fileSystem.inodeSize() + "] bytes, but actual [remaining=" + buffer.remaining() + "]";
         var size = buffer.getLong();
         var blocksCount = buffer.getInt();
@@ -47,9 +37,20 @@ class Inode implements FileOperations, DirectoryOperations {
         buffer.get();
         buffer.get();
         var iBlock = iBlockType.create(fileSystem, buffer, size, blocksCount);
-        var inode = new Inode(fileSystem, id, iBlock);
+        Inode<?> result = null;
+        if (iBlock instanceof FileIblock fileIblock) {
+            result = new FileInode(fileSystem, id, fileIblock);
+        } else if (iBlock instanceof DirIblock dirIblock) {
+            result = new DirInode(fileSystem, id, dirIblock);
+        } else {
+            throw new IllegalStateException("Should be one of file or dir");
+        }
         assert !buffer.hasRemaining() : "Read should consume all bytes, but actual [remaining=" + buffer.remaining() + "]";
-        return inode;
+        return result;
+    }
+
+    protected void flush() {
+        fileSystem.writeInode(this); // Can grow, TODO: add isDirty check
     }
 
     void flush(ByteBuffer buffer) {
@@ -64,143 +65,14 @@ class Inode implements FileOperations, DirectoryOperations {
         assert !buffer.hasRemaining();
     }
 
-    @Override
-    public Iterator<DirEntry> iterator() {
-        try {
-            beginRead();
-            return directoryOperations().iterator();
-        } finally {
-            endRead();
-        }
-    }
-
-    @Override
-    public DirEntry add(Id inode, FileType fileType, String name) throws AbstractOutOfMemoryException {
+    void delete() throws IOException {
         try {
             beginWrite();
-            var result = directoryOperations().add(inode, fileType, name);
-            flush();
-            return result;
-        } catch (DirEntryListOfMemoryException e) {
-            upgradeInlineDirList();
-            var result = directoryOperations().add(inode, fileType, name);
-            flush();
-            return result;
-        } finally {
-            endWrite();
-        }
-    }
-
-    @Override
-    public DirEntry get(String name) throws NoSuchFileException {
-        try {
-            beginRead();
-            return directoryOperations().get(name);
-        } finally {
-            endRead();
-        }
-    }
-
-    @Override
-    public void rename(String name, String newName) throws NoSuchFileException, AbstractOutOfMemoryException {
-        try {
-            beginWrite();
-            directoryOperations().rename(name, newName);
-            flush();
-        } catch (DirEntryListOfMemoryException e) {
-            upgradeInlineDirList();
-            directoryOperations().rename(name, newName);
-            flush();
-        } finally {
-            endWrite();
-        }
-    }
-
-    @Override
-    public void delete(String name) throws NoSuchFileException {
-        try {
-            beginWrite();
-            directoryOperations().delete(name);
-            flush();
-        } finally {
-            endWrite();
-        }
-    }
-
-    @Override
-    public void delete() throws IOException {
-        try {
-            beginWrite();
-            if (isDirectory()) {
-                ((DirectoryOperations) iBlock).delete();
-            } else if (isRegularFile()) {
-                ((FileOperations) iBlock).delete();
-            }
+            iBlock.delete();
 //            fileSystem.freeInode(id);
         } finally {
             endWrite();
         }
-    }
-
-    @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DataOutOfMemoryException, IndirectBlockOutOfMemoryException {
-        try {
-            beginWrite();
-            var written = fileOperations().write(position, buffer);
-            flush();
-            return written;
-        } catch (DataOutOfMemoryException e) {
-            upgradeInlineData();
-            var written = fileOperations().write(position, buffer);
-            flush();
-            return written;
-        } finally {
-            endWrite();
-        }
-    }
-
-    @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
-        try {
-            beginRead();
-            var read = fileOperations().read(position, buffer);
-            buffer.flip();
-            return read;
-        } finally {
-            endRead();
-        }
-    }
-
-    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
-        log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
-        assert iBlock instanceof DirEntryListIblock : "Only DIR_INLINE_LIST can be upgraded";
-        var dirEntryList = (DirEntryListIblock) iBlock;
-        iBlock = DirBlockMapping.init(fileSystem, dirEntryList.entryList());
-        dirty = true;
-        checkInvariant();
-    }
-
-    private void upgradeInlineData() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
-        log.fine(() -> "Upgrading inode [id=" + id + "] from inline data to block mapping...");
-        assert iBlock instanceof DataIblock : "Only FILE_INLINE_DATA can be upgraded";
-        var data = (DataIblock) iBlock;
-        iBlock = FileBlockMapping.init(fileSystem, data.data());
-        dirty = true;
-        checkInvariant();
-    }
-
-    private DirectoryOperations directoryOperations() {
-        ensureDirectory();
-        return (DirectoryOperations) iBlock;
-    }
-
-    private FileOperations fileOperations() {
-        ensureRegularFile();
-        return (FileOperations) iBlock;
-    }
-
-    private void flush() {
-        fileSystem.writeInode(this); // Can grow, TODO: add isDirty check
     }
 
     void beginRead() {
@@ -219,28 +91,8 @@ class Inode implements FileOperations, DirectoryOperations {
         lock.writeLock().unlock();
     }
 
-    private void checkInvariant() {
+    protected void checkInvariant() {
         assert iBlock != null : "Iblock should be specified";
-    }
-
-    boolean isDirectory() {
-        return iBlock.type().fileType == FileType.DIRECTORY;
-    }
-
-    boolean isRegularFile() {
-        return iBlock.type().fileType == FileType.REGULAR_FILE;
-    }
-
-    void ensureRegularFile() {
-        if (!isRegularFile()) {
-            throw new IllegalStateException("Not a file");
-        }
-    }
-
-    void ensureDirectory() {
-        if (!isDirectory()) {
-            throw new IllegalStateException("Not a directory");
-        }
     }
 
     int blockSize() {

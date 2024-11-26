@@ -5,14 +5,14 @@ import java.util.function.BiFunction;
 class InodeTableRegion implements AbstractRegion {
 
     private final AtlantFileSystem fileSystem;
-    private final Cache<Inode.Id, Inode> cache = new Cache<>();
-    private final Inode root;
+    private final Cache<Inode.Id, Inode<?>> cache = new Cache<>();
+    private final DirInode root;
 
     InodeTableRegion(AtlantFileSystem fileSystem) {
         this(fileSystem, null);
     }
 
-    InodeTableRegion(AtlantFileSystem fileSystem, Inode root) {
+    InodeTableRegion(AtlantFileSystem fileSystem, DirInode root) {
         this.fileSystem = fileSystem;
         if (root == null) {
             try {
@@ -27,23 +27,28 @@ class InodeTableRegion implements AbstractRegion {
 
     static InodeTableRegion read(AtlantFileSystem fileSystem) {
         var root = fileSystem.readInode(Inode.Id.ROOT);
-        return new InodeTableRegion(fileSystem, root);
+        return new InodeTableRegion(fileSystem, (DirInode) root);
     }
 
-    Inode get(Inode.Id inodeId) {
+    Inode<?> get(Inode.Id inodeId) {
         checkInodeIdLimit(inodeId);
         return cache.computeIfAbsent(inodeId, fileSystem::readInode);
     }
 
-    Inode createFile() throws BitmapRegionOutOfMemoryException {
-        return createInode(Inode::createRegularFile);
+    FileInode createFile() throws BitmapRegionOutOfMemoryException {
+        return (FileInode) createInode(FileInode::init);
     }
 
-    Inode createDirectory() throws BitmapRegionOutOfMemoryException {
-        return createInode(Inode::createDirectory);
+    DirInode createDirectory() throws BitmapRegionOutOfMemoryException {
+        var reserved = fileSystem.reserveInode();
+        checkInodeIdLimit(reserved);
+        var result = DirInode.init(fileSystem, reserved);
+        result.flush();
+        cache.put(reserved, result);
+        return result;
     }
 
-    private Inode createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegionOutOfMemoryException {
+    private Inode<?> createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var inode = function.apply(fileSystem, reserved);
@@ -95,7 +100,7 @@ class InodeTableRegion implements AbstractRegion {
         return fileSystem.inodeSize();
     }
 
-    Inode root() {
+    DirInode root() {
         return root;
     }
 

@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-class DataIblock implements IBlock, FileOperations {
+class DataIblock implements FileIblock {
 
     private final Data data;
 
@@ -70,4 +70,5 @@ class DataIblock implements IBlock, FileOperations {
     public Data data() {
         return data;
     }
+
 }

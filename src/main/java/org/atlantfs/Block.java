@@ -1,5 +1,6 @@
 package org.atlantfs;
 
+import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.util.HexFormat;
@@ -15,6 +16,8 @@ interface Block {
     boolean isDirty();
 
     void flush();
+
+    void delete() throws IOException;
 
     record Id(int value) implements AbstractId {
 

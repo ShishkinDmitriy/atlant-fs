@@ -51,9 +51,4 @@ class DirTree implements DirectoryOperations {
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public void delete() throws DirectoryNotEmptyException {
-
-    }
-
 }
