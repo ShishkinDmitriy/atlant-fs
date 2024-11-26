@@ -22,18 +22,23 @@ class DataBlock implements Block, FileOperations {
     }
 
     static DataBlock init(AtlantFileSystem fileSystem) throws BitmapRegionOutOfMemoryException {
-        var data = new Data(fileSystem.blockSize());
-        return init(fileSystem, data);
+        return initInternal(fileSystem, Data.init(fileSystem.blockSize()));
     }
 
     static DataBlock init(AtlantFileSystem fileSystem, byte[] bytes) throws BitmapRegionOutOfMemoryException {
+        assert bytes.length <= fileSystem.blockSize();
         var blockBytes = new byte[fileSystem.blockSize()];
         System.arraycopy(bytes, 0, blockBytes, 0, Math.min(bytes.length, blockBytes.length));
-        var data = new Data(blockBytes, bytes.length);
-        return init(fileSystem, data);
+        return initInternal(fileSystem, new Data(blockBytes, bytes.length));
     }
 
     static DataBlock init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionOutOfMemoryException {
+        var bytes = new byte[fileSystem.blockSize()];
+        System.arraycopy(data.bytes(), 0, bytes, 0, Math.min(bytes.length, data.bytes().length));
+        return initInternal(fileSystem, new Data(bytes, data.size()));
+    }
+
+    private static DataBlock initInternal(AtlantFileSystem fileSystem, Data data) throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveBlock();
         var dataBlock = new DataBlock(fileSystem, reserved, data);
         dataBlock.dirty = true;

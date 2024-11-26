@@ -2,7 +2,6 @@ package org.atlantfs;
 
 import org.atlantfs.util.CommaSeparatedListConverter;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,12 +10,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,8 +26,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class IndirectBlockTest {
-
-    private static final Logger log = Logger.getLogger(IndirectBlockTest.class.getName());
 
     private final AtomicInteger rangeReserve = new AtomicInteger(100);
     private final AtomicInteger singleReserve = new AtomicInteger(1000);
@@ -51,16 +46,17 @@ class IndirectBlockTest {
             lenient().when(block.id()).thenReturn(id);
             return block;
         });
+        lenient().when(leaf.id()).thenReturn(Block.Id.of(7));
     }
 
     //region IndirectBlock::init
     @CsvSource(value = {
-            // Call  | Expected                                                |
-            // depth | blockIds        | dirty                       | depth   |
-            "      0 |             100 |                         100 |       0 ",
-            "      1 |         100,101 |                 100,101;101 |     1,0 ",
-            "      2 |     100,101,102 |         100,101;101,102;102 |   2,1,0 ",
-            "      3 | 100,101,102,103 | 100,101;101,102;102,103;103 | 3,2,1,0 ",
+            // Call  | Expected                                                  |
+            // depth | blockIds        | dirty                         | depth   |
+            "      0 |             100 |                         7,100 |       0 ",
+            "      1 |         100,101 |                 100,101;7,101 |     1,0 ",
+            "      2 |     100,101,102 |         100,101;101,102;7,102 |   2,1,0 ",
+            "      3 | 100,101,102,103 | 100,101;101,102;102,103;7,103 | 3,2,1,0 ",
     }, delimiter = '|')
     @ParameterizedTest
     void init_should_createChainOfIndirectBlocks(
@@ -306,28 +302,6 @@ class IndirectBlockTest {
 
     private Block.Id reserveForIndirect() throws BitmapRegionOutOfMemoryException {
         return fileSystem.reserveBlocks(1).getFirst().from(); // Reserve range to get 100+ ids.
-    }
-
-    @Test
-    @Disabled
-    void check() {
-        var ref = new SoftReference<>(new Object());
-        while (ref.get() != null) {
-            try {
-                List<byte[]> list = new ArrayList<>();
-                int index = 1;
-                while (true) {
-                    byte[] b = new byte[1_024 * 1_024]; // 1MB
-                    list.add(b);
-                    Runtime rt = Runtime.getRuntime();
-                    log.fine("Iteration [" + index++ + ", freeMemory=" + rt.freeMemory() + "]");
-                }
-            } catch (OutOfMemoryError e) {
-                log.info("OutOfMemoryError caught");
-            }
-        }
-        log.info("SoftReference cleared [value=" + ref.get() + "]");
-        assertThat(ref.get()).isNull();
     }
 
     private List<IndirectBlock<?>> collectChain(Block block) {

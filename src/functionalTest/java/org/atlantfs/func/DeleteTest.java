@@ -137,7 +137,7 @@ class DeleteTest {
                 .inodeSize(32)
                 .numberOfBlockBitmaps(3)
                 .numberOfInodeBitmaps(1)
-                .numberOfInodeTables(80);
+                .numberOfInodeTables(90);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // Given
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {

@@ -75,7 +75,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
                 }
             }
             for (int i = 0; i < firstRequiredBlockNumber - lastExistingBlockNumber - 1; i++) {
-                add(DataBlock.init(fileSystem));
+                add(DataBlock.init(fileSystem, new byte[blockSize]));
             }
             {
                 var dataBlock = DataBlock.init(fileSystem);

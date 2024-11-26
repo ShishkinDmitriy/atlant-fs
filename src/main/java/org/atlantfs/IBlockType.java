@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 enum IBlockType {
 
-    FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (_, buffer, size, _) -> DataIblock.read(buffer, size)),
+    FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (fileSystem, buffer, size, _) -> DataIblock.read(fileSystem, buffer, size)),
 
     FILE_BLOCK_MAPPING(2, FileType.REGULAR_FILE, (fileSystem, buffer, size, _) -> FileBlockMapping.read(fileSystem, buffer, size)),
 

@@ -251,10 +251,6 @@ class Inode implements FileOperations, DirectoryOperations {
         return fileSystem.inodeSize();
     }
 
-    static int iBlockLength(int inodeSize) {
-        return inodeSize - MIN_LENGTH;
-    }
-
     public long size() {
         return iBlock.size();
     }

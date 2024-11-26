@@ -2,7 +2,6 @@ package org.atlantfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -46,7 +45,7 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
                 .mapToInt(IndirectBlock::size)
                 .sum();
         result.blocksCount = directBlocksCount + indirectBlocksCount;
-        buffer.position(position + Inode.iBlockLength(fileSystem.inodeSize()));
+        buffer.position(position + fileSystem.iblockSize());
         return result;
     }
 
@@ -154,7 +153,7 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
     }
 
     static int numberOfDirectBlocks(int inodeSize) {
-        return Inode.iBlockLength(inodeSize) / Block.Id.LENGTH - numberOfIndirectLevels();
+        return (inodeSize - Inode.MIN_LENGTH) / Block.Id.LENGTH - numberOfIndirectLevels();
     }
 
     static int numberOfIndirectLevels() {

@@ -49,14 +49,15 @@ final class IndirectBlock<B extends Block> implements Block {
         var current = new IndirectBlock<>(reserved.getLast(), fileSystem, 0, reader);
         current.pointers.add(Pointer.of(leaf, reader));
         current.dirty = true;
+        current.dirtyBlocks.add(leaf);
         current.size = 1;
         for (int i = 1; i <= depth; i++) {
             var reservedId = reserved.get(reserved.size() - i - 1);
             var indirectBlock = new IndirectBlock<>(reservedId, fileSystem, i, reader);
             int finalI = i;
             indirectBlock.pointers.add(Pointer.of(current, id -> IndirectBlock.read(fileSystem, id, finalI - 1, reader)));
-            indirectBlock.dirtyBlocks.add(current);
             indirectBlock.dirty = true;
+            indirectBlock.dirtyBlocks.add(current);
             indirectBlock.size = 1;
             current = indirectBlock;
         }

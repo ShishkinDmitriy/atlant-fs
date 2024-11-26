@@ -7,14 +7,14 @@ class Data implements FileOperations {
     private final byte[] data; // Has size of block
     private int length; // Less than block size, how many is used
 
-    Data(int length) {
-        this.data = new byte[length];
-        this.length = length;
-    }
-
     Data(byte[] data, int length) {
         this.data = data;
         this.length = length;
+        checkInvariant();
+    }
+
+    static Data init(int capacity) {
+        return new Data(new byte[capacity], 0);
     }
 
     static Data read(ByteBuffer buffer, int length) {
@@ -22,6 +22,9 @@ class Data implements FileOperations {
         var i = 0;
         while (buffer.hasRemaining()) {
             array[i++] = buffer.get();
+            if (i == length) {
+                break;
+            }
         }
         return new Data(array, length);
     }
@@ -42,12 +45,13 @@ class Data implements FileOperations {
             data[(int) (position + i++)] = buffer.get();
         }
         length = (int) targetLength;
+        checkInvariant();
         return i;
     }
 
     @Override
     public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
-        if (position >= data.length) {
+        if (position >= length) {
             return 0;
         }
         var bound = Math.min(buffer.remaining(), data.length - (int) position);
@@ -73,6 +77,11 @@ class Data implements FileOperations {
 
     boolean hasData() {
         return length > 0;
+    }
+
+    void checkInvariant() {
+        assert data != null;
+        assert data.length >= length;
     }
 
 }

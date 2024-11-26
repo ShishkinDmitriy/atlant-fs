@@ -10,13 +10,15 @@ class DataIblock implements IBlock, FileOperations {
         this.data = data;
     }
 
-    static DataIblock read(ByteBuffer buffer, long size) {
-        var data = Data.read(buffer, (int) size);
+    static DataIblock read(AtlantFileSystem fileSystem, ByteBuffer buffer, long size) {
+        var initial = buffer.position();
+        var data = Data.read(buffer.slice(initial, fileSystem.iblockSize()), (int) size);
+        buffer.position(initial + fileSystem.iblockSize());
         return new DataIblock(data);
     }
 
     static DataIblock init(AtlantFileSystem fileSystem) {
-        var data = new Data(fileSystem.iblockSize());
+        var data = new Data(new byte[fileSystem.iblockSize()], 0);
         return init(data);
     }
 
