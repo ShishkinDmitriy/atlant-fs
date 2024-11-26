@@ -40,8 +40,6 @@ class FileBlockMappingTest {
             fileBlockMapping.blocksCount++;
             return null;
         }).when(fileBlockMapping).add(any(DataBlock.class));
-        lenient().when(inode.getSize()).thenAnswer(_ -> dataBlocks.stream().mapToLong(DataBlock::size).sum());
-        lenient().when(inode.blocksCount()).thenAnswer(_ -> dataBlocks.size());
     }
 
     //region FileBlockMapping::read
@@ -182,6 +180,7 @@ class FileBlockMappingTest {
         if (value != null) {
             var dataBlock = DataBlock.init(fileSystem, bytes(value));
             dataBlocks.add(dataBlock);
+            fileBlockMapping.size += value.length();
             fileBlockMapping.blocksCount++;
         }
     }

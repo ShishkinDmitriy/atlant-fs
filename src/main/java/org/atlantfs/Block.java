@@ -112,7 +112,7 @@ interface Block {
             return Pointer.of(value, reader);
         }
 
-        void write(ByteBuffer buffer) {
+        void flush(ByteBuffer buffer) {
             id.write(buffer);
         }
 

@@ -161,7 +161,7 @@ class DirEntry {
         }
     }
 
-    void write(ByteBuffer buffer) {
+    void flush(ByteBuffer buffer) {
         var initial = buffer.position();
         log.fine(() -> "Writing Dir entry [position=" + initial + "]...");
         buffer.putInt(inode.value());
@@ -171,6 +171,7 @@ class DirEntry {
         buffer.put(name.getBytes());
         buffer.position(initial + length);
         log.finer(() -> "Successfully written Dir entry [entry=" + this + "]");
+        dirty = false;
     }
 
     boolean rename(String newName) {

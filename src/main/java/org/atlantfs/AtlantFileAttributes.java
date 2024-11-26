@@ -52,7 +52,7 @@ public class AtlantFileAttributes implements BasicFileAttributes {
 
     @Override
     public long size() {
-        return inode.getSize();
+        return inode.size();
     }
 
     @Override

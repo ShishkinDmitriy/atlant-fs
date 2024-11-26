@@ -1,54 +1,36 @@
 package org.atlantfs;
 
+import java.nio.ByteBuffer;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirEntryListBlock implements Block, DirectoryOperations {
+class DirEntryListIblock implements IBlock, DirectoryOperations {
 
-    private final Id id;
     private final DirEntryList entryList;
-    private final AtlantFileSystem fileSystem;
 
-    private DirEntryListBlock(Id id, AtlantFileSystem fileSystem, DirEntryList entryList) {
-        this.id = id;
+    private DirEntryListIblock(DirEntryList entryList) {
         this.entryList = entryList;
-        this.fileSystem = fileSystem;
     }
 
-    static DirEntryListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionOutOfMemoryException {
-        var dirEntryList = DirEntryList.init(fileSystem.blockSize());
+    static DirEntryListIblock init(AtlantFileSystem fileSystem) {
+        var dirEntryList = DirEntryList.init(fileSystem.iblockSize());
         return init(fileSystem, dirEntryList);
     }
 
-    static DirEntryListBlock init(AtlantFileSystem fileSystem, DirEntryList dirEntryList) throws BitmapRegionOutOfMemoryException {
-        var reserved = fileSystem.reserveBlock();
-        dirEntryList.resize(fileSystem.blockSize());
-        return new DirEntryListBlock(reserved, fileSystem, dirEntryList);
+    static DirEntryListIblock init(AtlantFileSystem fileSystem, DirEntryList dirEntryList) {
+        dirEntryList.resize(fileSystem.iblockSize());
+        return new DirEntryListIblock(dirEntryList);
     }
 
-    static DirEntryListBlock read(AtlantFileSystem fileSystem, Id id) {
-        var buffer = fileSystem.readBlock(id);
+    static DirEntryListIblock read(ByteBuffer buffer) {
         var dirEntryList = DirEntryList.read(buffer);
-        return new DirEntryListBlock(id, fileSystem, dirEntryList);
+        return new DirEntryListIblock(dirEntryList);
     }
 
     @Override
-    public Id id() {
-        return id;
-    }
-
-    @Override
-    public boolean isDirty() {
-        return entryList.isDirty();
-    }
-
-    @Override
-    public void flush() {
-        if (!isDirty()) {
-            return;
-        }
-        fileSystem.writeBlock(id, entryList::flush);
+    public void flush(ByteBuffer buffer) {
+        entryList.flush(buffer);
     }
 
     DirEntryList entryList() {
@@ -83,6 +65,21 @@ class DirEntryListBlock implements Block, DirectoryOperations {
     @Override
     public void delete() throws DirectoryNotEmptyException {
         entryList.delete();
+    }
+
+    @Override
+    public IBlockType type() {
+        return IBlockType.DIR_INLINE_LIST;
+    }
+
+    @Override
+    public long size() {
+        return 0;
+    }
+
+    @Override
+    public int blocksCount() {
+        return 0;
     }
 
 }

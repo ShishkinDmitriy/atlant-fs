@@ -14,7 +14,7 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations, Block, IBlock {
+final class DirEntryList implements DirectoryOperations {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
@@ -73,10 +73,9 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return block;
     }
 
-    @Override
-    public void write(ByteBuffer buffer) {
+    public void flush(ByteBuffer buffer) {
         assert buffer.remaining() == length;
-        entries.forEach(entry -> entry.write(buffer));
+        entries.forEach(entry -> entry.flush(buffer));
         assert !buffer.hasRemaining();
     }
 
@@ -211,14 +210,8 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return false;
     }
 
-    @Override
     public boolean isDirty() {
         return entries.stream().anyMatch(DirEntry::isDirty);
-    }
-
-    @Override
-    public void flush() {
-        throw new UnsupportedOperationException();
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -227,8 +220,4 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return entries;
     }
 
-    @Override
-    public Id id() {
-        throw new UnsupportedOperationException();
-    }
 }

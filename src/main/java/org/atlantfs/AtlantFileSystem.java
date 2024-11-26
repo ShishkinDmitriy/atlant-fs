@@ -144,9 +144,9 @@ public class AtlantFileSystem extends FileSystem {
 
     private Inode locate(AtlantPath absolutePath, FileType fileType, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
         if (absolutePath.equals(absolutePath.getRoot())) {
-            return inodeTableRegion.root();
+            return root();
         }
-        var inode = inodeTableRegion.root();
+        var inode = root();
         for (Path path : absolutePath.getParent()) {
             var fileName = path.getFileName().toString();
             try {
@@ -239,7 +239,7 @@ public class AtlantFileSystem extends FileSystem {
 
                 @Override
                 public long size() {
-                    return finalInode.getSize();
+                    return finalInode.size();
                 }
 
                 @Override
@@ -406,6 +406,10 @@ public class AtlantFileSystem extends FileSystem {
         return superBlock.inodeSize();
     }
 
+    int iblockSize() {
+        return inodeSize() - Inode.MIN_LENGTH;
+    }
+
     Inode root() {
         return inodeTableRegion.root();
     }
@@ -539,7 +543,7 @@ public class AtlantFileSystem extends FileSystem {
 
     void writeInode(Inode inode) {
         var buffer = getInodeByteBuffer();
-        inode.write(buffer);
+        inode.flush(buffer);
         buffer.flip();
         var channel = AtlantFileChannel.get();
         assert channel != null;

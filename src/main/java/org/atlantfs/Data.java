@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-class Data implements IBlock, FileOperations {
+class Data implements FileOperations {
 
     private final byte[] data; // Has size of block
     private int length; // Less than block size, how many is used
@@ -26,8 +26,7 @@ class Data implements IBlock, FileOperations {
         return new Data(array, length);
     }
 
-    @Override
-    public void write(ByteBuffer buffer) {
+    void flush(ByteBuffer buffer) {
         assert buffer.remaining() >= data.length;
         buffer.put(data);
     }
@@ -70,7 +69,6 @@ class Data implements IBlock, FileOperations {
 
     @Override
     public void delete() {
-
     }
 
     boolean hasData() {

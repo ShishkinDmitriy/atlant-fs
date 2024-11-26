@@ -1,32 +1,31 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.util.function.BiFunction;
 
 enum IBlockType {
 
-    FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (inode, buffer) -> Data.read(buffer, (int) inode.getSize())),
+    FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (_, buffer, size, _) -> DataIblock.read(buffer, size)),
 
-    FILE_BLOCK_MAPPING(2, FileType.REGULAR_FILE, FileBlockMapping::read),
+    FILE_BLOCK_MAPPING(2, FileType.REGULAR_FILE, (fileSystem, buffer, size, _) -> FileBlockMapping.read(fileSystem, buffer, size)),
 
-    FILE_EXTENT_TREE(3, FileType.REGULAR_FILE, null), // Unsupported yet
+    FILE_EXTENT_TREE(3, FileType.REGULAR_FILE, (_, _, _, _) -> null), // Unsupported yet
 
-    DIR_INLINE_LIST(4, FileType.DIRECTORY, (_, buffer) -> DirEntryList.read(buffer)),
+    DIR_INLINE_LIST(4, FileType.DIRECTORY, (_, buffer, _, _) -> DirEntryListIblock.read(buffer)),
 
-    DIR_BLOCK_MAPPING(5, FileType.DIRECTORY, DirBlockMapping::read),
+    DIR_BLOCK_MAPPING(5, FileType.DIRECTORY, (fileSystem, buffer, _, _) -> DirBlockMapping.read(fileSystem, buffer)),
 
-    DIR_TREE(6, FileType.DIRECTORY, (inode, buffer) -> DirTree.read(inode.getFileSystem(), buffer)); // Unsupported yet
+    DIR_TREE(6, FileType.DIRECTORY, (_, _, _, _) -> null); // Unsupported yet
 
     static final int LENGTH = 1;
 
     final byte value;
     final FileType fileType;
-    final BiFunction<Inode, ByteBuffer, IBlock> reader;
+    final Factory factory;
 
-    IBlockType(int value, FileType fileType, BiFunction<Inode, ByteBuffer, IBlock> reader) {
+    IBlockType(int value, FileType fileType, Factory factory) {
         this.value = (byte) value;
         this.fileType = fileType;
-        this.reader = reader;
+        this.factory = factory;
     }
 
     static IBlockType read(ByteBuffer buffer) {
@@ -42,8 +41,8 @@ enum IBlockType {
         };
     }
 
-    IBlock create(Inode inode, ByteBuffer buffer) {
-        return reader.apply(inode, buffer);
+    IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount) {
+        return factory.create(fileSystem, buffer, size, blocksCount);
     }
 
     void write(ByteBuffer buffer) {
@@ -52,6 +51,12 @@ enum IBlockType {
 
     FileType getFileType() {
         return fileType;
+    }
+
+    interface Factory {
+
+        IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount);
+
     }
 
 }

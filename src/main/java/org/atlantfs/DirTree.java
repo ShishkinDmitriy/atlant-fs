@@ -5,7 +5,7 @@ import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirTree implements DirectoryOperations, IBlock {
+class DirTree implements DirectoryOperations {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;
@@ -15,11 +15,6 @@ class DirTree implements DirectoryOperations, IBlock {
     }
 
     static DirTree read(AtlantFileSystem fileSystem, ByteBuffer buffer) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void write(ByteBuffer buffer) {
         throw new UnsupportedOperationException();
     }
 

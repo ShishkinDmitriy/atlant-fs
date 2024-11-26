@@ -2,6 +2,7 @@ package org.atlantfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -11,24 +12,25 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
 
     private static final Logger log = Logger.getLogger(AbstractBlockMapping.class.getName());
 
-    protected final Inode inode;
+    protected final AtlantFileSystem fileSystem;
     protected final List<Block.Pointer<B>> directs = new ArrayList<>();
     protected final List<Block.Pointer<IndirectBlock<B>>> indirects = new ArrayList<>();
     protected int blocksCount;
     protected boolean dirty;
+    protected final List<Block> dirtyBlocks = new ArrayList<>();
 
-    public AbstractBlockMapping(Inode inode) {
-        this.inode = inode;
+    public AbstractBlockMapping(AtlantFileSystem fileSystem) {
+        this.fileSystem = fileSystem;
     }
 
-    static <B extends Block, M extends AbstractBlockMapping<B>> M read(Inode inode, ByteBuffer buffer, Function<Inode, M> factory) {
-        var result = factory.apply(inode);
+    static <B extends Block, M extends AbstractBlockMapping<B>> M read(AtlantFileSystem fileSystem, ByteBuffer buffer, Function<AtlantFileSystem, M> factory) {
+        var result = factory.apply(fileSystem);
         var position = buffer.position();
-        var numberOfDirectBlocks = numberOfDirectBlocks(inode.inodeSize());
+        var numberOfDirectBlocks = numberOfDirectBlocks(fileSystem.inodeSize());
         while (buffer.hasRemaining()) {
             var value = Block.Id.read(buffer);
             if (value.equals(Block.Id.ZERO)) {
-                return result;
+                break;
             }
             if (result.directs.size() < numberOfDirectBlocks) {
                 result.directs.add(Block.Pointer.of(value, result::readBlock));
@@ -44,23 +46,27 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
                 .mapToInt(IndirectBlock::size)
                 .sum();
         result.blocksCount = directBlocksCount + indirectBlocksCount;
-        buffer.position(position + Inode.iBlockLength(inode.inodeSize()));
+        buffer.position(position + Inode.iBlockLength(fileSystem.inodeSize()));
         return result;
     }
 
     @Override
-    public void write(ByteBuffer buffer) {
-        //noinspection resource
-        var iblockLength = Inode.iBlockLength(fileSystem().inodeSize());
+    public void flush(ByteBuffer buffer) {
+        var iblockLength = fileSystem.iblockSize();
         assert buffer.remaining() >= iblockLength;
         var initial = buffer.position();
-        directs.forEach(id -> id.write(buffer));
-        indirects.forEach(id -> id.write(buffer));
+        directs.forEach(id -> id.flush(buffer));
+        indirects.forEach(id -> id.flush(buffer));
+        if (buffer.hasRemaining()) {
+            Block.Id.ZERO.write(buffer);
+        }
         buffer.position(initial + iblockLength);
+        dirtyBlocks.forEach(Block::flush);
+        dirtyBlocks.clear();
     }
 
     B get(int blockNumber) {
-        log.finer(() -> "Resolving [blockNumber=" + blockNumber + ", inodeId=" + inode.getId() + "]...");
+        log.finer(() -> "Resolving [blockNumber=" + blockNumber + "]...");
         if (blockNumber < directs.size()) {
             var result = directs.get(blockNumber).get();
             log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + result + "] by direct");
@@ -70,7 +76,7 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
         for (var pointer : indirects) {
             var indirectBlock = pointer.get();
             if (index < indirectBlock.maxSize()) {
-                var result = indirectBlock.get(blockNumber);
+                var result = indirectBlock.get(index);
                 log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + result + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
                 return result;
             }
@@ -80,21 +86,34 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
     }
 
     void add(B block) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
-        var blockNumber = blocksCount();
-        log.finer(() -> "Resolving [blockNumber=" + blockNumber + ", inodeId=" + inode.getId() + "]...");
+        var blockNumber = blocksCount;
+        log.finer(() -> "Resolving [blockNumber=" + blockNumber + "]...");
         if (blockNumber < numberOfDirectBlocks(inodeSize())) {
             directs.add(Block.Pointer.of(block, this::readBlock));
+            dirtyBlocks.add(block);
             blocksCount++;
             log.fine(() -> "Successfully added [blockId=" + block.id() + ", blockNumber=" + blockNumber + "] by direct");
             return;
         }
         int index = blockNumber - directs.size();
-        for (var pointer : indirects) {
+        for (int i = 0; i < numberOfIndirectLevels(); i++) {
+            if (indirects.size() <= i) {
+                var indirectBlock = IndirectBlock.init(fileSystem, i, this::readBlock, block);
+                assert index < indirectBlock.maxSize();
+                int finalI = i;
+                indirects.add(Block.Pointer.of(indirectBlock, id -> readIndirectBlock(id, finalI)));
+                dirtyBlocks.add(indirectBlock);
+                blocksCount++;
+                log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
+                return;
+            }
+            var pointer = indirects.get(i);
             var indirectBlock = pointer.get();
             if (index < indirectBlock.maxSize()) {
-                var result = indirectBlock.add(block);
+                indirectBlock.add(block);
+                dirtyBlocks.add(indirectBlock);
                 blocksCount++;
-                log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + result + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
+                log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
                 return;
             }
             index -= indirectBlock.maxSize();
@@ -106,31 +125,32 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
         var directIds = directs.stream()
                 .map(Block.Pointer::id)
                 .toList();
-        //noinspection resource
-        fileSystem().freeBlocks(directIds);
+        fileSystem.freeBlocks(directIds);
         indirects.stream().map(Block.Pointer::get).forEach(IndirectBlock::delete);
     }
 
     abstract B readBlock(Block.Id id);
 
     IndirectBlock<B> readIndirectBlock(Block.Id blockId, int depth) {
-        return IndirectBlock.read(fileSystem(), blockId, depth, this::readBlock);
-    }
-
-    protected AtlantFileSystem fileSystem() {
-        return inode.getFileSystem();
+        return IndirectBlock.read(fileSystem, blockId, depth, this::readBlock);
     }
 
     protected int inodeSize() {
-        return inode.inodeSize();
+        return fileSystem.inodeSize();
     }
 
     protected int blockSize() {
-        return inode.blockSize();
+        return fileSystem.blockSize();
     }
 
-    protected int blocksCount() {
-        return inode.blocksCount();
+    @Override
+    public int blocksCount() {
+        return blocksCount;
+    }
+
+    @Override
+    public long size() {
+        return (long) blocksCount * fileSystem.blockSize();
     }
 
     static int numberOfDirectBlocks(int inodeSize) {

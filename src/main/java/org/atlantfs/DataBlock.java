@@ -45,7 +45,7 @@ class DataBlock implements Block, FileOperations {
         if (!isDirty()) {
             return;
         }
-        fileSystem.writeBlock(id, data::write);
+        fileSystem.writeBlock(id, data::flush);
         dirty = false;
     }
 

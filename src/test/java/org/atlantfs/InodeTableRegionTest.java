@@ -31,6 +31,7 @@ class InodeTableRegionTest {
         lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
         lenient().when(fileSystem.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(fileSystem.inodeSize()).thenReturn(INODE_SIZE);
+        lenient().when(fileSystem.iblockSize()).thenReturn(INODE_SIZE - Inode.MIN_LENGTH);
         lenient().when(fileSystem.reserveInode()).thenReturn(Inode.Id.ROOT).thenReturn(Inode.Id.of(45));
         lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(superBlock.inodeSize()).thenReturn(INODE_SIZE);

@@ -4,6 +4,12 @@ import java.nio.ByteBuffer;
 
 interface IBlock {
 
-    void write(ByteBuffer buffer);
+    long size();
+
+    int blocksCount();
+
+    void flush(ByteBuffer buffer);
+
+    IBlockType type();
 
 }

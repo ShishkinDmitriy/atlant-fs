@@ -8,24 +8,28 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
 
     private static final Logger log = Logger.getLogger(FileBlockMapping.class.getName());
 
-    FileBlockMapping(Inode inode) {
+    protected long size;
+
+    FileBlockMapping(AtlantFileSystem inode) {
         super(inode);
     }
 
-    static FileBlockMapping read(Inode inode, ByteBuffer buffer) {
-        return AbstractBlockMapping.read(inode, buffer, FileBlockMapping::new);
+    static FileBlockMapping read(AtlantFileSystem inode, ByteBuffer buffer, long size) {
+        var blockMapping = AbstractBlockMapping.read(inode, buffer, FileBlockMapping::new);
+        blockMapping.size = size;
+        return blockMapping;
     }
 
-    static FileBlockMapping init(Inode inode, Data data) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
-        var result = new FileBlockMapping(inode);
-        result.add(DataBlock.init(inode.getFileSystem(), data));
+    static FileBlockMapping init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+        var result = new FileBlockMapping(fileSystem);
+        result.add(DataBlock.init(fileSystem, data));
         result.dirty = true;
         return result;
     }
 
     @Override
     DataBlock readBlock(Block.Id id) {
-        return DataBlock.read(fileSystem(), id);
+        return DataBlock.read(fileSystem, id);
     }
 
     @Override
@@ -35,8 +39,9 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
 
     @Override
     public int write(long position, ByteBuffer buffer) throws DataOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+        var initial = buffer.position();
         var blockSize = blockSize();
-        var lastExistingPosition = inode.getSize() - 1;
+        var lastExistingPosition = size - 1;
         var lastExistingBlockNumber = blocksCount - 1;
         var lastExistingBlock = get(lastExistingBlockNumber);
         var firstRequiredBlockNumber = (int) ((position + buffer.position()) / blockSize);
@@ -70,10 +75,10 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
                 }
             }
             for (int i = 0; i < firstRequiredBlockNumber - lastExistingBlockNumber - 1; i++) {
-                add(DataBlock.init(fileSystem()));
+                add(DataBlock.init(fileSystem));
             }
             {
-                var dataBlock = DataBlock.init(fileSystem());
+                var dataBlock = DataBlock.init(fileSystem);
                 var offset = (int) position % blockSize;
                 if (offset > 0) {
                     dataBlock.write(0, ByteBuffer.allocate(offset));
@@ -89,7 +94,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
             var offset = (int) (positionPlus % blockSize);
             var length = Math.min(blockSize - offset, buffer.remaining());
             if (blockNumber > blocksCount - 1) {
-                dataBlock = DataBlock.init(fileSystem());
+                dataBlock = DataBlock.init(fileSystem);
                 add(dataBlock);
             } else {
                 dataBlock = get(blockNumber);
@@ -103,6 +108,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
             }
         }
         assert !buffer.hasRemaining();
+        size = Math.max(size, position + initial + totalWritten);
         return totalWritten;
     }
 
@@ -112,7 +118,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
         var totalRead = 0;
         while (buffer.hasRemaining()) {
             var positionPlus = position + buffer.position();
-            if (positionPlus >= inode.getSize()) {
+            if (positionPlus >= size) {
                 return totalRead;
             }
             var blockNumber = (int) Long.divideUnsigned(positionPlus, blockSize);
@@ -121,6 +127,16 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileOp
             totalRead += dataBlock.read(offset, buffer);
         }
         return totalRead;
+    }
+
+    @Override
+    public IBlockType type() {
+        return IBlockType.FILE_BLOCK_MAPPING;
+    }
+
+    @Override
+    public long size() {
+        return size;
     }
 
 }
