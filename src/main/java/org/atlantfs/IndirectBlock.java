@@ -17,7 +17,7 @@ final class IndirectBlock<B extends Block> implements Block {
     private int size;
     private boolean dirty;
 
-    IndirectBlock(Id id, AtlantFileSystem fileSystem, int depth, Function<Id, B> leafReader) {
+    IndirectBlock(AtlantFileSystem fileSystem, Id id, int depth, Function<Id, B> leafReader) {
         this.id = id;
         this.fileSystem = fileSystem;
         this.depth = depth;
@@ -45,23 +45,22 @@ final class IndirectBlock<B extends Block> implements Block {
         if (reader == null) throw new NullPointerException("reader");
         if (leaf == null) throw new NullPointerException("leaf");
         //endregion
-        var reserved = Range.flat(fileSystem.reserveBlocks(depth + 1));
-        var current = new IndirectBlock<>(reserved.getLast(), fileSystem, 0, reader);
-        current.pointers.add(Pointer.of(leaf, reader));
-        current.dirty = true;
-        current.dirtyBlocks.add(leaf);
-        current.size = 1;
-        for (int i = 1; i <= depth; i++) {
-            var reservedId = reserved.get(reserved.size() - i - 1);
-            var indirectBlock = new IndirectBlock<>(reservedId, fileSystem, i, reader);
-            int finalI = i;
-            indirectBlock.pointers.add(Pointer.of(current, id -> IndirectBlock.read(fileSystem, id, finalI - 1, reader)));
-            indirectBlock.dirty = true;
-            indirectBlock.dirtyBlocks.add(current);
-            indirectBlock.size = 1;
-            current = indirectBlock;
+        Block dirtyBlock;
+        Pointer<?> pointer;
+        if (depth == 0) {
+            pointer = Pointer.of(leaf, reader);
+            dirtyBlock = leaf;
+        } else {
+            var indirectBlock = init(fileSystem, depth - 1, reader, leaf);
+            pointer = Pointer.of(indirectBlock, id -> IndirectBlock.read(fileSystem, id, depth - 1, reader));
+            dirtyBlock = indirectBlock;
         }
-        return current;
+        var result = new IndirectBlock<>(fileSystem, fileSystem.reserveBlock(), depth, reader);
+        result.pointers.add(pointer);
+        result.dirty = true;
+        result.dirtyBlocks.add(dirtyBlock);
+        result.size = 1;
+        return result;
     }
 
     static <B extends Block> IndirectBlock<B> read(AtlantFileSystem fileSystem, Id blockId, int depth, Function<Id, B> reader) {
@@ -72,7 +71,7 @@ final class IndirectBlock<B extends Block> implements Block {
         //endregion
         var buffer = fileSystem.readBlock(blockId);
         assert buffer.remaining() % Id.LENGTH == 0 : "Buffer should be aligned with BLock.Id size";
-        IndirectBlock<B> indirectBlock = new IndirectBlock<>(blockId, fileSystem, depth, reader);
+        IndirectBlock<B> indirectBlock = new IndirectBlock<>(fileSystem, blockId, depth, reader);
         while (buffer.hasRemaining()) {
             var value = Id.read(buffer);
             if (value.equals(Id.ZERO)) { // Use 0 for terminating symbol
@@ -195,11 +194,7 @@ final class IndirectBlock<B extends Block> implements Block {
     }
 
     List<? extends Block> dirtyBlocks() {
-        if (dirty) {
-            return Stream.concat(dirtyBlocks.stream(), Stream.of(this)).toList();
-        } else {
-            return Collections.unmodifiableList(dirtyBlocks);
-        }
+        return Collections.unmodifiableList(dirtyBlocks);
     }
 
     IndirectBlock<B> indirectReader(Id id) {

@@ -27,7 +27,7 @@ class BlockTest {
 
     }
 
-    static class BlockIdLis0tListConverter implements ArgumentConverter {
+    static class BlockIdLis0fListConverter implements ArgumentConverter {
 
         private final BlockIdListConverter blockIdListConverter = new BlockIdListConverter();
 

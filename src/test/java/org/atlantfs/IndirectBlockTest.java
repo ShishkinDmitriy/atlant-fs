@@ -51,18 +51,18 @@ class IndirectBlockTest {
 
     //region IndirectBlock::init
     @CsvSource(value = {
-            // Call  | Expected                                                  |
-            // depth | blockIds        | dirty                         | depth   |
-            "      0 |             100 |                         7,100 |       0 ",
-            "      1 |         100,101 |                 100,101;7,101 |     1,0 ",
-            "      2 |     100,101,102 |         100,101;101,102;7,102 |   2,1,0 ",
-            "      3 | 100,101,102,103 | 100,101;101,102;102,103;7,103 | 3,2,1,0 ",
+            // Call  | Expected                                         |
+            // depth | blockIds            | dirty            | depth   |
+            "      0 |                1000 |                7 |       0 ",
+            "      1 |           1001,1000 |           1000;7 |     1,0 ",
+            "      2 |      1002,1001,1000 |      1001;1000;7 |   2,1,0 ",
+            "      3 | 1003,1002,1001,1000 | 1002;1001;1000;7 | 3,2,1,0 ",
     }, delimiter = '|')
     @ParameterizedTest
     void init_should_createChainOfIndirectBlocks(
             int depth,
             @ConvertWith(BlockTest.BlockIdListConverter.class) List<Block.Id> expectedBlockIds,
-            @ConvertWith(BlockTest.BlockIdLis0tListConverter.class) List<List<Block.Id>> expectedDirtyBlockIds,
+            @ConvertWith(BlockTest.BlockIdLis0fListConverter.class) List<List<Block.Id>> expectedDirtyBlockIds,
             @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedDepths) throws BitmapRegionOutOfMemoryException {
         // When
         var result = IndirectBlock.init(fileSystem, depth, reader, leaf);
@@ -76,7 +76,7 @@ class IndirectBlockTest {
             softly.assertThat(chain).extracting(IndirectBlock::depth).containsExactlyElementsOf(expectedDepths);
             softly.assertThat(chain).extracting(IndirectBlock::pointers).allMatch(list -> list.size() == 1);
             softly.assertThat(chain).extracting(IndirectBlock::size).allMatch(value -> value == 1);
-            softly.assertThat(chain).extracting(IndirectBlock::dirtyBlocks).extracting(blocks -> blocks.stream().map(Block::id).toList()).containsAnyElementsOf(expectedDirtyBlockIds);
+            softly.assertThat(chain).extracting(IndirectBlock::dirtyBlocks).extracting(blocks -> blocks.stream().map(Block::id).toList()).containsExactlyElementsOf(expectedDirtyBlockIds);
             softly.assertThat(chain.getLast()).extracting(block -> block.pointers().getFirst().get()).isEqualTo(leaf);
         });
     }
@@ -137,7 +137,7 @@ class IndirectBlockTest {
             "          64 |     2 |  4095 |      5095 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void get_should_retrieveLeafBlock(int blockSize, int depth, int index, @ConvertWith(BlockTest.BlockIdConverter.class) Block.Id expectedResult) throws BitmapRegionOutOfMemoryException {
+    void get_should_retrieveLeafBlock(int blockSize, int depth, int index, @ConvertWith(BlockTest.BlockIdConverter.class) Block.Id expectedResult) {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth);
@@ -171,7 +171,7 @@ class IndirectBlockTest {
             "          64 |     2 | 4096 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void get_should_throwIndexOutOfBoundsException_when_indexIsTooBig(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    void get_should_throwIndexOutOfBoundsException_when_indexIsTooBig(int blockSize, int depth, int size) {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
@@ -200,7 +200,7 @@ class IndirectBlockTest {
             "          64 |     2 | 4096 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void size_should_returnNumberOfLeafBlocks(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    void size_should_returnNumberOfLeafBlocks(int blockSize, int depth, int size) {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
@@ -252,7 +252,7 @@ class IndirectBlockTest {
             "          64 |     2 | 4096 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void add_should_throwIndirectBlockOutOfMemoryException_when_sizeBecomeBiggerThanLimit(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    void add_should_throwIndirectBlockOutOfMemoryException_when_sizeBecomeBiggerThanLimit(int blockSize, int depth, int size) {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
@@ -263,18 +263,18 @@ class IndirectBlockTest {
     }
     //endregion
 
-    private IndirectBlock<?> constructTree(int blockSize, int depth) throws BitmapRegionOutOfMemoryException {
+    private IndirectBlock<?> constructTree(int blockSize, int depth) {
         return constructTree(blockSize, depth, IndirectBlock.maxSize(blockSize, depth));
     }
 
-    private IndirectBlock<Block> constructTree(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException {
+    private IndirectBlock<Block> constructTree(int blockSize, int depth, int size) {
         return constructTreeInternal(blockSize, depth, size - 1);
     }
 
-    private IndirectBlock<Block> constructTreeInternal(int blockSize, int depth, int lastIndex) throws BitmapRegionOutOfMemoryException {
+    private IndirectBlock<Block> constructTreeInternal(int blockSize, int depth, int lastIndex) {
         assert lastIndex >= 0;
         var id = reserveForIndirect();
-        var block = new IndirectBlock<>(id, fileSystem, depth, reader);
+        var block = new IndirectBlock<>(fileSystem, id, depth, reader);
         if (depth > 0) {
             var maxSize = IndirectBlock.maxSize(blockSize, depth - 1);
             var bounds = lastIndex / maxSize;
@@ -296,12 +296,12 @@ class IndirectBlockTest {
         return block;
     }
 
-    private Block.Id reserveForLeaf() throws BitmapRegionOutOfMemoryException {
-        return fileSystem.reserveBlock(); // Reserve single to get 1000+ ids
+    private Block.Id reserveForLeaf() {
+        return Block.Id.of(singleReserve.getAndIncrement()); // Reserve single to get 1000+ ids
     }
 
-    private Block.Id reserveForIndirect() throws BitmapRegionOutOfMemoryException {
-        return fileSystem.reserveBlocks(1).getFirst().from(); // Reserve range to get 100+ ids.
+    private Block.Id reserveForIndirect() {
+        return Block.Id.of(rangeReserve.getAndIncrement()); // Reserve range to get 100+ ids.
     }
 
     private List<IndirectBlock<?>> collectChain(Block block) {
