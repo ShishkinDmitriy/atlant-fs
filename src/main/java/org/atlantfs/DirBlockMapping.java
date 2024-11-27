@@ -56,11 +56,11 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
     }
 
     @Override
-    public DirEntry add(Inode.Id inodeId, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         for (int i = 0; i < blocksCount(); i++) {
             try {
                 var entryList = get(i);
-                var add = entryList.add(inodeId, fileType, name);
+                var add = entryList.add(id, fileType, name);
                 entryList.flush();
                 return add;
             } catch (DirectoryOutOfMemoryException _) {
@@ -68,7 +68,7 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
             }
         }
         var entryList = DirEntryListBlock.init(fileSystem);
-        var add = entryList.add(inodeId, fileType, name);
+        var add = entryList.add(id, fileType, name);
         add(entryList);
         entryList.flush();
         return add;

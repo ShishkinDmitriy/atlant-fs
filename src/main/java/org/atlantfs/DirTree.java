@@ -1,7 +1,6 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
@@ -24,7 +23,7 @@ class DirTree implements DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) {
         throw new UnsupportedOperationException();
     }
 

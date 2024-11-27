@@ -7,15 +7,15 @@ interface DirectoryOperations {
 
     Iterator<DirEntry> iterator();
 
-    default DirEntry addDirectory(Inode.Id inode, String name) throws AbstractOutOfMemoryException {
-        return add(inode, FileType.DIRECTORY, name);
+    default DirEntry addDir(Inode.Id id, String name) throws AbstractOutOfMemoryException {
+        return add(id, FileType.DIRECTORY, name);
     }
 
-    default DirEntry addRegularFile(Inode.Id inode, String name) throws AbstractOutOfMemoryException {
-        return add(inode, FileType.REGULAR_FILE, name);
+    default DirEntry addFile(Inode.Id id, String name) throws AbstractOutOfMemoryException {
+        return add(id, FileType.REGULAR_FILE, name);
     }
 
-    DirEntry add(Inode.Id inode, FileType fileType, String name) throws AbstractOutOfMemoryException;
+    DirEntry add(Inode.Id id, FileType fileType, String name) throws AbstractOutOfMemoryException;
 
     DirEntry get(String name) throws NoSuchFileException;
 

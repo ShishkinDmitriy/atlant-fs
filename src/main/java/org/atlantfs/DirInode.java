@@ -29,15 +29,15 @@ class DirInode extends Inode<DirIblock> implements DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) throws AbstractOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws AbstractOutOfMemoryException {
         try {
             beginWrite();
-            var result = iBlock.add(inode, fileType, name);
+            var result = iBlock.add(id, fileType, name);
             flush();
             return result;
         } catch (DirEntryListOfMemoryException e) {
             upgradeInlineDirList();
-            var result = iBlock.add(inode, fileType, name);
+            var result = iBlock.add(id, fileType, name);
             flush();
             return result;
         } finally {

@@ -1,7 +1,6 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,14 +84,14 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
-            newEntry.init(inode, fileType, name);
+            newEntry.init(id, fileType, name);
         } else {
             var index = findByAvailableSpace(name);
-            newEntry = entries.get(index).split(inode, fileType, name);
+            newEntry = entries.get(index).split(id, fileType, name);
             entries.add(index + 1, newEntry);
         }
         checkInvariant();

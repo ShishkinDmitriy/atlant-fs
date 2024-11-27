@@ -1,0 +1,8 @@
+@startuml
+
+interface FileOperations {
+    +write(position: long, buffer: ByteBuffer): int
+    +read(position: long, buffer: ByteBuffer): int
+}
+
+@enduml

@@ -37,7 +37,7 @@ abstract class Inode<B extends IBlock> {
         buffer.get();
         buffer.get();
         var iBlock = iBlockType.create(fileSystem, buffer, size, blocksCount);
-        Inode<?> result = null;
+        Inode<?> result;
         if (iBlock instanceof FileIblock fileIblock) {
             result = new FileInode(fileSystem, id, fileIblock);
         } else if (iBlock instanceof DirIblock dirIblock) {

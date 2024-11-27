@@ -1,8 +1,9 @@
 package org.atlantfs;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
-final class SuperBlock {
+final class SuperBlock implements Block {
 
     public static final int LENGTH = 2 + 2 + 4 + 4 + 4 + 4 + 4;
     public static final short MAGIC = (short) 0xEF54;
@@ -12,27 +13,31 @@ final class SuperBlock {
     private int numberOfBlockBitmaps;
     private int numberOfInodeBitmaps;
     private int numberOfInodeTables;
+    private boolean dirty;
+    private final AtlantFileSystem fileSystem;
 
-    private SuperBlock() {
+    private SuperBlock(AtlantFileSystem fileSystem) {
+        this.fileSystem = fileSystem;
     }
 
-    static SuperBlock init(AtlantConfig atlantConfig) {
-        var superBlock = new SuperBlock();
-        superBlock.setBlockSize(atlantConfig.blockSize());
-        superBlock.setInodeSize(atlantConfig.inodeSize());
-        superBlock.setNumberOfBlockBitmaps(atlantConfig.numberOfBlockBitmaps());
-        superBlock.setNumberOfInodeBitmaps(atlantConfig.numberOfInodeBitmaps());
-        superBlock.setNumberOfInodeTables(atlantConfig.numberOfInodeTables());
-        return superBlock;
+    static SuperBlock init(AtlantFileSystem fileSystem, AtlantConfig atlantConfig) {
+        var result = new SuperBlock(fileSystem);
+        result.setBlockSize(atlantConfig.blockSize());
+        result.setInodeSize(atlantConfig.inodeSize());
+        result.setNumberOfBlockBitmaps(atlantConfig.numberOfBlockBitmaps());
+        result.setNumberOfInodeBitmaps(atlantConfig.numberOfInodeBitmaps());
+        result.setNumberOfInodeTables(atlantConfig.numberOfInodeTables());
+        result.dirty = true;
+        return result;
     }
 
-    static SuperBlock read(ByteBuffer buffer) {
+    static SuperBlock read(AtlantFileSystem fileSystem, ByteBuffer buffer) {
         short magic = buffer.getShort();
         if (magic != MAGIC) {
             throw new IllegalArgumentException("Bad magic for AtlantFS [" + magic + "]");
         }
         var _ = buffer.getShort();
-        SuperBlock result = new SuperBlock();
+        SuperBlock result = new SuperBlock(fileSystem);
         result.setBlockSize(buffer.getInt());
         result.setInodeSize(buffer.getInt());
         result.setNumberOfBlockBitmaps(buffer.getInt());
@@ -42,15 +47,37 @@ final class SuperBlock {
         return result;
     }
 
-    void write(ByteBuffer buffer) {
-        buffer.putShort(MAGIC);
-        buffer.putShort((short) 0);
-        buffer.putInt(blockSize);
-        buffer.putInt(inodeSize);
-        buffer.putInt(numberOfBlockBitmaps);
-        buffer.putInt(numberOfInodeBitmaps);
-        buffer.putInt(numberOfInodeTables);
-        assert buffer.position() == LENGTH;
+    @Override
+    public void flush() {
+        if (!isDirty()) {
+            return;
+        }
+        fileSystem.writeBlock(id(), buffer -> {
+            buffer.putShort(MAGIC);
+            buffer.putShort((short) 0);
+            buffer.putInt(blockSize);
+            buffer.putInt(inodeSize);
+            buffer.putInt(numberOfBlockBitmaps);
+            buffer.putInt(numberOfInodeBitmaps);
+            buffer.putInt(numberOfInodeTables);
+            assert buffer.position() == LENGTH;
+        });
+        dirty = false;
+    }
+
+    @Override
+    public Id id() {
+        return Id.ZERO;
+    }
+
+    @Override
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    @Override
+    public void delete() throws IOException {
+        // Do nothing
     }
 
     int blockSize() {

@@ -1,0 +1,35 @@
+@startuml
+hide empty members
+
+!include include/FileOperations.puml
+!include include/DirOperations.puml
+!include include/Iblock.puml
+
+interface FileIblock
+interface DirIblock
+
+abstract class BlockMapping
+
+Iblock <|-- FileIblock
+Iblock <|.. BlockMapping
+Iblock <|-- DirIblock
+
+FileOperations <|--- FileIblock
+DirOperations <|--- DirIblock
+
+class DataIblock
+class FileBlockMapping
+
+class DirListIblock
+class DirBlockMapping
+
+FileIblock <|.. DataIblock
+FileIblock <|.. FileBlockMapping
+
+BlockMapping <|-- FileBlockMapping
+BlockMapping <|-- DirBlockMapping
+
+DirIblock <|.. DirListIblock
+DirIblock <|.. DirBlockMapping
+
+@enduml

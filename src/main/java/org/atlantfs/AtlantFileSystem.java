@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -64,8 +63,8 @@ public class AtlantFileSystem extends FileSystem {
                 statistics.incrementReadCalls();
                 statistics.addReadBytes(read);
                 buffer.flip();
-                this.superBlock = SuperBlock.read(buffer);
-                this.inodeTableRegion = InodeTableRegion.read(this);
+                superBlock = SuperBlock.read(this, buffer);
+                inodeTableRegion = InodeTableRegion.read(this);
                 log.fine(() -> "Successfully opened new Atlant file system [path=" + path.toAbsolutePath() + "]");
             } catch (IOException e) {
                 log.log(Level.SEVERE, "Failed to open Atlant file system [path=" + path.toAbsolutePath() + "]", e);
@@ -73,13 +72,12 @@ public class AtlantFileSystem extends FileSystem {
             }
         } else {
             log.finer(() -> "Creating new Atlant file system [path=" + path.toAbsolutePath() + "]...");
-            var config = AtlantConfig.fromMap(env);
-            this.superBlock = SuperBlock.init(config);
+            superBlock = SuperBlock.init(this, AtlantConfig.fromMap(env));
             try (var _ = AtlantFileChannel.openForCreate(path)) {
-                writeBlock(Block.Id.ZERO, superBlock::write);
+                superBlock.flush();
                 dataBitmapRegion.init();
                 inodeBitmapRegion.init();
-                this.inodeTableRegion = new InodeTableRegion(this);
+                inodeTableRegion = new InodeTableRegion(this);
                 log.fine(() -> "Successfully created new Atlant file system [path=" + path.toAbsolutePath() + "]");
             } catch (IOException e) {
                 log.log(Level.SEVERE, "Failed to create Atlant file system [path=" + path.toAbsolutePath() + "]", e);
@@ -157,7 +155,7 @@ public class AtlantFileSystem extends FileSystem {
                     throw new NoSuchFileException(path.toString());
                 }
                 var newInode = inodeTableRegion.createDirectory();
-                dirInode.addDirectory(newInode.getId(), fileName);
+                var _ = dirInode.addDir(newInode.getId(), fileName);
                 dirInode = newInode;
             }
         }
@@ -178,7 +176,7 @@ public class AtlantFileSystem extends FileSystem {
                 throw new NoSuchFileException(path.toString());
             }
             var fileInode = inodeTableRegion.createFile();
-            dirInode.addRegularFile(fileInode.getId(), fileName);
+            DirEntry _ = dirInode.addFile(fileInode.getId(), fileName);
             return fileInode;
         }
     }

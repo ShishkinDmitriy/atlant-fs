@@ -43,8 +43,8 @@ class DirEntryListIblock implements DirIblock {
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
-        return entryList.add(inode, fileType, name);
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+        return entryList.add(id, fileType, name);
     }
 
     @Override

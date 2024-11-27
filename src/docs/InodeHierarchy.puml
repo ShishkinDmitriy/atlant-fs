@@ -1,0 +1,26 @@
+@startuml
+hide empty members
+
+!include include/FileOperations.puml
+!include include/DirOperations.puml
+
+abstract class Inode<B extends Iblock> {
+    #iblock: B
+}
+class FileInode<FileIblock>
+class DirInode<DirIblock>
+'interface Iblock
+'interface FileIblock
+'interface DirIblock
+
+Inode <|-- FileInode
+Inode <|-- DirInode
+
+FileOperations <|... FileInode
+DirOperations <|... DirInode
+
+'Inode *.> Iblock : iblock
+'FileInode *-> FileIblock : iblock
+'DirInode *-> DirIblock : iblock
+
+@enduml

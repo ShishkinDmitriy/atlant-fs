@@ -1,0 +1,10 @@
+@startuml
+
+interface Block {
+    +id(): Id
+    +isDirty(): boolean
+    +flush(): void
+    +delete(): void
+}
+
+@enduml

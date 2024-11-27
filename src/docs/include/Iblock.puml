@@ -1,0 +1,11 @@
+@startuml
+
+interface Iblock {
+    +size(): long
+    +blocksCount(): int
+    +flush(buffer: ByteBuffer): void
+    +type(): IBlockType
+    +delete(): void
+}
+
+@enduml
