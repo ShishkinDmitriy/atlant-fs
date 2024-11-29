@@ -20,7 +20,7 @@ class FileBlockMapping extends BlockMapping<DataBlock> implements FileIblock {
         return blockMapping;
     }
 
-    static FileBlockMapping init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    static FileBlockMapping init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         var result = new FileBlockMapping(fileSystem);
         result.add(DataBlock.init(fileSystem, data));
         result.dirty = true;
@@ -38,7 +38,7 @@ class FileBlockMapping extends BlockMapping<DataBlock> implements FileIblock {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws DataOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         var initial = buffer.position();
         var blockSize = blockSize();
         var lastExistingPosition = size - 1;
@@ -113,7 +113,7 @@ class FileBlockMapping extends BlockMapping<DataBlock> implements FileIblock {
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
         var blockSize = blockSize();
         var totalRead = 0;
         while (buffer.hasRemaining()) {

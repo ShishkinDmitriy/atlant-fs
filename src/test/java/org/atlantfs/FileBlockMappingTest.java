@@ -29,7 +29,7 @@ class FileBlockMappingTest {
     private final List<DataBlock> dataBlocks = new ArrayList<>();
 
     @BeforeEach
-    void beforeEach() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    void beforeEach() throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         lenient().when(fileSystem.blockSize()).thenReturn(8);
         lenient().when(fileSystem.inodeSize()).thenReturn(32);
         lenient().when(inode.blockSize()).thenReturn(8);
@@ -85,7 +85,7 @@ class FileBlockMappingTest {
             long position,
             int bufferPosition,
             int bufferRemaining,
-            String expectedRead) throws DataOutOfMemoryException, BitmapRegionOutOfMemoryException {
+            String expectedRead) throws DataNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
         // Given
         addDataBlock(block0);
         addDataBlock(block1);
@@ -150,7 +150,7 @@ class FileBlockMappingTest {
             String bufferValue,
             String expectedBlock0,
             String expectedBlock1,
-            String expectedBlock2) throws DataOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+            String expectedBlock2) throws DataNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         // Given
         addDataBlock(block0);
         addDataBlock(block1);
@@ -176,7 +176,7 @@ class FileBlockMappingTest {
         }
     }
 
-    private void addDataBlock(String value) throws BitmapRegionOutOfMemoryException {
+    private void addDataBlock(String value) throws BitmapRegionNotEnoughSpaceException {
         if (value != null) {
             var dataBlock = DataBlock.init(fileSystem, bytes(value));
             dataBlocks.add(dataBlock);

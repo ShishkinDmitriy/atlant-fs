@@ -29,13 +29,13 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws AbstractOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws NotEnoughSpaceException {
         try {
             beginWrite();
             var result = iblock.add(id, fileType, name);
             flush();
             return result;
-        } catch (DirListOfMemoryException e) {
+        } catch (DirListNotEnoughSpaceException e) {
             upgradeInlineDirList();
             var result = iblock.add(id, fileType, name);
             flush();
@@ -56,12 +56,12 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, AbstractOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, NotEnoughSpaceException {
         try {
             beginWrite();
             iblock.rename(name, newName);
             flush();
-        } catch (DirListOfMemoryException e) {
+        } catch (DirListNotEnoughSpaceException e) {
             upgradeInlineDirList();
             iblock.rename(name, newName);
             flush();
@@ -81,7 +81,7 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
         }
     }
 
-    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    private void upgradeInlineDirList() throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
         assert iblock instanceof DirListIblock : "Only DIR_INLINE_LIST can be upgraded";
         var dirEntryList = (DirListIblock) iblock;

@@ -133,15 +133,15 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    private DirInode locateDir(AtlantPath path) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private DirInode locateDir(AtlantPath path) throws NoSuchFileException, FileAlreadyExistsException, NotEnoughSpaceException {
         return locateDir(path, Set.of());
     }
 
-    private DirInode locateDir(AtlantPath path, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private DirInode locateDir(AtlantPath path, OpenOption... options) throws NoSuchFileException, FileAlreadyExistsException, NotEnoughSpaceException {
         return locateDir(path, new HashSet<>(Arrays.asList(options)));
     }
 
-    private DirInode locateDir(AtlantPath path, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private DirInode locateDir(AtlantPath path, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, NotEnoughSpaceException {
         if (path.isRoot()) {
             return root();
         }
@@ -160,7 +160,7 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    private FileInode locateFile(AtlantPath path, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private FileInode locateFile(AtlantPath path, Set<? extends OpenOption> options) throws NoSuchFileException, FileAlreadyExistsException, NotEnoughSpaceException {
         var parentInode = locateDir(path.getParent(), options);
         var fileName = path.getFileName().toString();
         try {
@@ -179,7 +179,7 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    private Inode<?> locateAny(AtlantPath path) throws NoSuchFileException, FileAlreadyExistsException, AbstractOutOfMemoryException {
+    private Inode<?> locateAny(AtlantPath path) throws NoSuchFileException, FileAlreadyExistsException, NotEnoughSpaceException {
         if (path.isRoot()) {
             return root();
         }
@@ -427,21 +427,21 @@ public class AtlantFileSystem extends FileSystem {
         throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists, expected [" + FileType.REGULAR_FILE + "]");
     }
 
-    Block.Id reserveBlock() throws BitmapRegionOutOfMemoryException {
+    Block.Id reserveBlock() throws BitmapRegionNotEnoughSpaceException {
         log.finer(() -> "Reserving 1 block...");
         var reserved = dataBitmapRegion.reserve();
         log.fine(() -> "Successfully reserved 1 block [" + reserved + "]");
         return reserved;
     }
 
-    List<Block.Range> reserveBlocks(int size) throws BitmapRegionOutOfMemoryException {
+    List<Block.Range> reserveBlocks(int size) throws BitmapRegionNotEnoughSpaceException {
         log.finer(() -> "Reserving [" + size + "] blocks...");
         var reserved = dataBitmapRegion.reserve(size);
         log.fine(() -> "Successfully reserved [" + size + "] block [" + reserved + "]");
         return reserved;
     }
 
-    Inode.Id reserveInode() throws BitmapRegionOutOfMemoryException {
+    Inode.Id reserveInode() throws BitmapRegionNotEnoughSpaceException {
         log.finer(() -> "Reserving 1 inode...");
         var reserved = inodeBitmapRegion.reserve();
         log.fine(() -> "Successfully reserved 1 inode [" + reserved + "]");

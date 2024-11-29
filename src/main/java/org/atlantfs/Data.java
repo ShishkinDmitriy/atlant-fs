@@ -35,10 +35,10 @@ class Data implements FileOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
         var targetLength = position + buffer.remaining();
         if (targetLength > data.length) {
-            throw new DataOutOfMemoryException();
+            throw new DataNotEnoughSpaceException();
         }
         var i = 0;
         while (buffer.hasRemaining()) {
@@ -50,7 +50,7 @@ class Data implements FileOperations {
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
         if (position >= length) {
             return 0;
         }

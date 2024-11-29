@@ -85,7 +85,7 @@ abstract class BlockMapping<B extends Block> implements Iblock {
         throw new IndexOutOfBoundsException("Block number [blockNumber=" + blockNumber + "] is out of bounds [blocksCount=" + blocksCount() + "]");
     }
 
-    void add(B block) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    void add(B block) throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         var blockNumber = blocksCount;
         log.finer(() -> "Resolving [blockNumber=" + blockNumber + "]...");
         if (blockNumber < numberOfDirectBlocks(inodeSize())) {

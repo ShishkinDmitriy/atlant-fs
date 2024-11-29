@@ -16,12 +16,12 @@ class DirListBlock implements Block, DirOperations {
         this.fileSystem = fileSystem;
     }
 
-    static DirListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionOutOfMemoryException {
+    static DirListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionNotEnoughSpaceException {
         var dirEntryList = DirList.init(fileSystem.blockSize());
         return init(fileSystem, dirEntryList);
     }
 
-    static DirListBlock init(AtlantFileSystem fileSystem, DirList dirList) throws BitmapRegionOutOfMemoryException {
+    static DirListBlock init(AtlantFileSystem fileSystem, DirList dirList) throws BitmapRegionNotEnoughSpaceException {
         var reserved = fileSystem.reserveBlock();
         dirList.resize(fileSystem.blockSize());
         return new DirListBlock(reserved, fileSystem, dirList);
@@ -61,7 +61,7 @@ class DirListBlock implements Block, DirOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
         return entryList.add(id, fileType, name);
     }
 
@@ -71,7 +71,7 @@ class DirListBlock implements Block, DirOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
         entryList.rename(name, newName);
     }
 

@@ -43,7 +43,7 @@ class DirListIblock implements DirIblock {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
         return entryList.add(id, fileType, name);
     }
 
@@ -53,7 +53,7 @@ class DirListIblock implements DirIblock {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
         entryList.rename(name, newName);
     }
 

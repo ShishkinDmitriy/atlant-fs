@@ -39,12 +39,12 @@ class DataIblock implements FileIblock {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DataOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws BitmapRegionNotEnoughSpaceException, DataNotEnoughSpaceException {
         return data.write(position, buffer);
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
         return data.read(position, buffer);
     }
 

@@ -53,9 +53,9 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
      * Reserve single {@link K}.
      *
      * @return single id of reserved item
-     * @throws BitmapRegionOutOfMemoryException if not enough space to reserve
+     * @throws BitmapRegionNotEnoughSpaceException if not enough space to reserve
      */
-    K reserve() throws BitmapRegionOutOfMemoryException {
+    K reserve() throws BitmapRegionNotEnoughSpaceException {
         log.fine(() -> "Reserving single...");
         var cur = current.get();
         while (cur < numberOfBlocks()) {
@@ -65,7 +65,7 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
             }
             cur++;
         }
-        throw new BitmapRegionOutOfMemoryException();
+        throw new BitmapRegionNotEnoughSpaceException();
     }
 
     /**
@@ -73,9 +73,9 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
      *
      * @param size number of items to reserve
      * @return the list of ranges {@link R} with total of specified size
-     * @throws BitmapRegionOutOfMemoryException if not enough space to reserve
+     * @throws BitmapRegionNotEnoughSpaceException if not enough space to reserve
      */
-    List<R> reserve(int size) throws BitmapRegionOutOfMemoryException {
+    List<R> reserve(int size) throws BitmapRegionNotEnoughSpaceException {
         log.fine(() -> "Reserving multiple of [size=" + size + "]...");
         var ranges = reserveMultiple(current.get(), size);
         assert ranges.stream().mapToInt(R::length).sum() == size;
@@ -103,7 +103,7 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
         }
     }
 
-    protected List<R> reserveMultiple(int bitmapNumber, int size) throws BitmapRegionOutOfMemoryException {
+    protected List<R> reserveMultiple(int bitmapNumber, int size) throws BitmapRegionNotEnoughSpaceException {
         List<Bitmap.Range> ranges = List.of();
         var bitmap = loadBitmap(bitmapNumber);
         try {
@@ -118,7 +118,7 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
             var reservedSize = ranges.stream().mapToInt(Bitmap.Range::length).sum();
             var remainingSize = size - reservedSize;
             if (remainingSize > 0 && bitmapNumber >= numberOfBlocks() - 1) {
-                throw new BitmapRegionOutOfMemoryException();
+                throw new BitmapRegionNotEnoughSpaceException();
             }
             var converted = new ArrayList<>(applyOffset(bitmapNumber, ranges));
             if (remainingSize > 0) {
@@ -129,7 +129,7 @@ abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region 
             checkInvariant();
             write(bitmapNumber, bitmap);
             return converted;
-        } catch (BitmapRegionOutOfMemoryException e) {
+        } catch (BitmapRegionNotEnoughSpaceException e) {
             ranges.forEach(bitmap::free);
             throw e;
         } finally {

@@ -175,7 +175,7 @@ class DirListTest {
             String nameToAdd,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirNotEnoughSpaceException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -198,7 +198,7 @@ class DirListTest {
     }
 
     @Test
-    void should_mutateExistingEntry_when_emptyEntry() throws DirOutOfMemoryException {
+    void should_mutateExistingEntry_when_emptyEntry() throws DirNotEnoughSpaceException {
         // Given
         short length = (short) 4096;
         Inode.Id inode = Inode.Id.of(randomInt());
@@ -244,7 +244,7 @@ class DirListTest {
             int newNameLength,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirNotEnoughSpaceException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -289,7 +289,7 @@ class DirListTest {
         String newName = randomString(newNameLength);
         // When Then
         assertThatThrownBy(() -> block.rename(oldName, newName))
-                .isInstanceOf(DirListOfMemoryException.class)
+                .isInstanceOf(DirListNotEnoughSpaceException.class)
                 .hasMessageContaining("Not enough space");
     }
     //endregion

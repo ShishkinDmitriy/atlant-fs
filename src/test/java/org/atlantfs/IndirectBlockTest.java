@@ -35,7 +35,7 @@ class IndirectBlockTest {
     private @Mock Function<Block.Id, Block> reader;
 
     @BeforeEach
-    void beforeEach() throws BitmapRegionOutOfMemoryException {
+    void beforeEach() throws BitmapRegionNotEnoughSpaceException {
         lenient().when(fileSystem.reserveBlocks(anyInt())).thenAnswer(invocation -> {
             var size = invocation.getArgument(0, Integer.class);
             return List.of(Block.Range.of(Block.Id.of(rangeReserve.getAndAdd(size)), size));
@@ -64,7 +64,7 @@ class IndirectBlockTest {
             int depth,
             @ConvertWith(BlockTest.BlockIdListConverter.class) List<Block.Id> expectedBlockIds,
             @ConvertWith(BlockTest.BlockIdLis0fListConverter.class) List<List<Block.Id>> expectedDirtyBlockIds,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedDepths) throws BitmapRegionOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Integer> expectedDepths) throws BitmapRegionNotEnoughSpaceException {
         // When
         var result = IndirectBlock.init(fileSystem, depth, reader, leaf);
         // Then
@@ -229,7 +229,7 @@ class IndirectBlockTest {
             "          64 |     2 | 4095 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void add_should_appendNEwLeafBlock(int blockSize, int depth, int size) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    void add_should_appendNEwLeafBlock(int blockSize, int depth, int size) throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
         // Given
         when(fileSystem.blockSize()).thenReturn(blockSize);
         var root = constructTree(blockSize, depth, size);
@@ -260,7 +260,7 @@ class IndirectBlockTest {
         assertThat(root.size()).isEqualTo(size);
         // When Then
         assertThatThrownBy(() -> root.add(leaf))
-                .isInstanceOf(IndirectBlockOutOfMemoryException.class);
+                .isInstanceOf(IndirectBlockNotEnoughSpaceException.class);
     }
     //endregion
 

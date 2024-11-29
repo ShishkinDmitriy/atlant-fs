@@ -84,7 +84,7 @@ final class DirList implements DirOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
@@ -104,7 +104,7 @@ final class DirList implements DirOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException {
         log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
@@ -160,11 +160,11 @@ final class DirList implements DirOperations {
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
 
-    int findByAvailableSpace(String newName) throws DirOutOfMemoryException {
+    int findByAvailableSpace(String newName) throws DirNotEnoughSpaceException {
         return IntStream.range(0, entries.size())
                 .filter(i -> entries.get(i).canBeSplit(newName))
                 .findFirst()
-                .orElseThrow(() -> new DirListOfMemoryException("Not enough space"));
+                .orElseThrow(() -> new DirListNotEnoughSpaceException("Not enough space"));
     }
 
     public void resize(int newLength) {
