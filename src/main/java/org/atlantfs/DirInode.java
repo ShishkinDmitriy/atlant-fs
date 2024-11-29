@@ -4,7 +4,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-class DirInode extends Inode<DirIblock> implements DirectoryOperations {
+class DirInode extends Inode<DirIblock> implements DirOperations {
 
     private static final Logger log = Logger.getLogger(DirInode.class.getName());
 
@@ -14,7 +14,7 @@ class DirInode extends Inode<DirIblock> implements DirectoryOperations {
     }
 
     static DirInode init(AtlantFileSystem fileSystem, DirInode.Id id) {
-        var dirEntryListIblock = DirEntryListIblock.init(fileSystem);
+        var dirEntryListIblock = DirListIblock.init(fileSystem);
         return new DirInode(fileSystem, id, dirEntryListIblock);
     }
 
@@ -22,22 +22,22 @@ class DirInode extends Inode<DirIblock> implements DirectoryOperations {
     public Iterator<DirEntry> iterator() {
         try {
             beginRead();
-            return iBlock.iterator();
+            return iblock.iterator();
         } finally {
             endRead();
         }
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws AbstractOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws NotEnoughSpaceException {
         try {
             beginWrite();
-            var result = iBlock.add(id, fileType, name);
+            var result = iblock.add(id, fileType, name);
             flush();
             return result;
-        } catch (DirEntryListOfMemoryException e) {
+        } catch (DirList.NotEnoughSpaceException e) {
             upgradeInlineDirList();
-            var result = iBlock.add(id, fileType, name);
+            var result = iblock.add(id, fileType, name);
             flush();
             return result;
         } finally {
@@ -49,21 +49,21 @@ class DirInode extends Inode<DirIblock> implements DirectoryOperations {
     public DirEntry get(String name) throws NoSuchFileException {
         try {
             beginRead();
-            return iBlock.get(name);
+            return iblock.get(name);
         } finally {
             endRead();
         }
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, AbstractOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, NotEnoughSpaceException {
         try {
             beginWrite();
-            iBlock.rename(name, newName);
+            iblock.rename(name, newName);
             flush();
-        } catch (DirEntryListOfMemoryException e) {
+        } catch (DirList.NotEnoughSpaceException e) {
             upgradeInlineDirList();
-            iBlock.rename(name, newName);
+            iblock.rename(name, newName);
             flush();
         } finally {
             endWrite();
@@ -71,21 +71,21 @@ class DirInode extends Inode<DirIblock> implements DirectoryOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         try {
             beginWrite();
-            iBlock.delete(name);
+            iblock.remove(name);
             flush();
         } finally {
             endWrite();
         }
     }
 
-    private void upgradeInlineDirList() throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    private void upgradeInlineDirList() throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
-        assert iBlock instanceof DirEntryListIblock : "Only DIR_INLINE_LIST can be upgraded";
-        var dirEntryList = (DirEntryListIblock) iBlock;
-        iBlock = DirBlockMapping.init(fileSystem, dirEntryList.entryList());
+        assert iblock instanceof DirListIblock : "Only DIR_INLINE_LIST can be upgraded";
+        var dirEntryList = (DirListIblock) iblock;
+        iblock = DirBlockMapping.init(fileSystem, dirEntryList.dirList());
         dirty = true;
         checkInvariant();
     }

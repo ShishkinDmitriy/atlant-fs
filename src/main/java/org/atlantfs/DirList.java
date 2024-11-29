@@ -13,9 +13,9 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations {
+final class DirList implements DirOperations {
 
-    private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
+    private static final Logger log = Logger.getLogger(DirList.class.getName());
 
     /**
      * The number of bytes occupied by this list.
@@ -29,13 +29,13 @@ final class DirEntryList implements DirectoryOperations {
      */
     private final List<DirEntry> entries;
 
-    DirEntryList(int length, List<DirEntry> entries) {
+    DirList(int length, List<DirEntry> entries) {
         this.length = length;
         this.entries = entries;
         checkInvariant();
     }
 
-    DirEntryList(int length) {
+    DirList(int length) {
         List<DirEntry> entries = new ArrayList<>();
         entries.add(DirEntry.empty((short) length));
         this.length = length;
@@ -43,11 +43,11 @@ final class DirEntryList implements DirectoryOperations {
         checkInvariant();
     }
 
-    static DirEntryList init(int length) {
-        return new DirEntryList(length);
+    static DirList init(int length) {
+        return new DirList(length);
     }
 
-    static DirEntryList read(ByteBuffer buffer) {
+    static DirList read(ByteBuffer buffer) {
         List<DirEntry> entries = new ArrayList<>();
         var length = buffer.remaining();
         while (buffer.hasRemaining()) {
@@ -67,7 +67,7 @@ final class DirEntryList implements DirectoryOperations {
             }
         }
         assert !buffer.hasRemaining();
-        var block = new DirEntryList(length, entries);
+        var block = new DirList(length, entries);
         block.checkInvariant();
         return block;
     }
@@ -84,7 +84,7 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirList.NotEnoughSpaceException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
@@ -104,7 +104,7 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirList.NotEnoughSpaceException {
         log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
@@ -121,7 +121,7 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         log.fine(() -> "Deleting entry [name=" + name + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to delete [index=" + index + "]");
@@ -160,11 +160,11 @@ final class DirEntryList implements DirectoryOperations {
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
 
-    int findByAvailableSpace(String newName) throws DirectoryOutOfMemoryException {
+    int findByAvailableSpace(String newName) throws DirList.NotEnoughSpaceException {
         return IntStream.range(0, entries.size())
                 .filter(i -> entries.get(i).canBeSplit(newName))
                 .findFirst()
-                .orElseThrow(() -> new DirEntryListOfMemoryException("Not enough space"));
+                .orElseThrow(() -> new DirList.NotEnoughSpaceException("Not enough space"));
     }
 
     public void resize(int newLength) {
@@ -204,14 +204,31 @@ final class DirEntryList implements DirectoryOperations {
         return false;
     }
 
-    public boolean isDirty() {
+    boolean isDirty() {
         return entries.stream().anyMatch(DirEntry::isDirty);
     }
 
-    // -----------------------------------------------------------------------------------------------------------------
-
     List<DirEntry> getEntries() {
         return entries;
+    }
+
+    static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+
+        NotEnoughSpaceException() {
+        }
+
+        NotEnoughSpaceException(String message) {
+            super(message);
+        }
+
+        NotEnoughSpaceException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        NotEnoughSpaceException(Throwable cause) {
+            super(cause);
+        }
+
     }
 
 }

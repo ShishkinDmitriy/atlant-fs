@@ -20,9 +20,9 @@ import static org.atlantfs.util.RandomUtil.randomInt;
 import static org.atlantfs.util.RandomUtil.randomString;
 
 @ExtendWith(LoggingExtension.class)
-class DirEntryListTest {
+class DirListTest {
 
-    //region DirEntryList::read
+    //region DirList::read
     @Test
     void read_should_parseDirEntries_when_onlyOneGoodEntry() {
         // Given
@@ -30,7 +30,7 @@ class DirEntryListTest {
                 40E2 0100 1000 0301 6469 7200 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -48,7 +48,7 @@ class DirEntryListTest {
                 F1FB 0900 1000 0402 6469 7232 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -66,7 +66,7 @@ class DirEntryListTest {
                 F1FB 0900 2000 0402 6469 7232 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -85,7 +85,7 @@ class DirEntryListTest {
                 0000 0000 0000 0000 0000 0000 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -97,7 +97,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::delete
+    //region DirList::remove
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                     | Expected                   |
@@ -107,10 +107,10 @@ class DirEntryListTest {
             "16,24,64,1024 | a,b,c,d | c   | 16,88,1024 | a,b,d | 0,1,0 ",
             "16,24,64,1024 | a,b,c,d | d   | 16,24,1088 | a,b,c | 0,0,1 ",
     }, delimiter = '|')
-    void delete_should_expandNeighbourEntry_when_sizeIsMoreThan1(
+    void remove_should_expandNeighbourEntry_when_sizeIsMoreThan1(
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> lengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> names,
-            String nameToDelete,
+            String nameToRemove,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
             @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException {
@@ -121,34 +121,34 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var dirList = new DirList(pos, entries);
         // When
-        block.delete(nameToDelete);
+        dirList.remove(nameToRemove);
         // Then
         assertSoftly(softly -> {
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames);
-            softly.assertThat(block.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
-            softly.assertThat(block.isDirty()).isTrue();
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames);
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
+            softly.assertThat(dirList.isDirty()).isTrue();
         });
     }
 
     @Test
-    void delete_should_deleteDirEntry_when_sizeIs1() throws NoSuchFileException {
+    void remove_should_removeDirEntry_when_sizeIs1() throws NoSuchFileException {
         // Given
         var position = 0;
         var length = (short) 1024;
         var name = randomString(255);
         var entry = DirEntry.create(position, length, Inode.Id.of(123), FileType.DIRECTORY, name);
-        var block = new DirEntryList(length, List.of(entry));
+        var dirList = new DirList(length, List.of(entry));
         // When
-        block.delete(name);
+        dirList.remove(name);
         // Then
         assertSoftly(softly -> {
-            softly.assertThat(block.getEntries()).hasSize(1);
-            softly.assertThat(block.isDirty()).isTrue();
+            softly.assertThat(dirList.getEntries()).hasSize(1);
+            softly.assertThat(dirList.isDirty()).isTrue();
         });
-        var deleted = block.getEntries().getFirst();
+        var deleted = dirList.getEntries().getFirst();
         assertSoftly(softly -> {
             softly.assertThat(deleted).isNotNull();
             softly.assertThat(deleted.getPosition()).isEqualTo(position);
@@ -161,7 +161,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::add
+    //region DirList::add
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                           | Expected                                         |
@@ -175,7 +175,7 @@ class DirEntryListTest {
             String nameToAdd,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirectoryOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirList.NotEnoughSpaceException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -183,33 +183,33 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var dirList = new DirList(pos, entries);
         // When
-        var result = block.add(Inode.Id.of(randomInt()), FileType.REGULAR_FILE, nameToAdd);
+        var result = dirList.add(Inode.Id.of(randomInt()), FileType.REGULAR_FILE, nameToAdd);
         // Then
         assertThat(result).isNotNull();
         assertThat(result.isDirty()).isTrue();
         assertSoftly(softly -> {
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames);
-            softly.assertThat(block.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
-            softly.assertThat(block.isDirty()).isTrue();
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames);
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
+            softly.assertThat(dirList.isDirty()).isTrue();
         });
     }
 
     @Test
-    void should_mutateExistingEntry_when_emptyEntry() throws DirectoryOutOfMemoryException {
+    void add_should_mutateExistingEntry_when_emptyEntry() throws DirList.NotEnoughSpaceException {
         // Given
         short length = (short) 4096;
         Inode.Id inode = Inode.Id.of(randomInt());
         String name = randomString(255);
-        var block = new DirEntryList(length);
+        var dirList = new DirList(length);
         // When
-        var result = block.add(inode, FileType.DIRECTORY, name);
+        var result = dirList.add(inode, FileType.DIRECTORY, name);
         // Then
         assertThat(result).isNotNull();
-        assertThat(block.getEntries()).isNotNull().hasSize(1);
-        var entry = block.getEntries().getFirst();
+        assertThat(dirList.getEntries()).isNotNull().hasSize(1);
+        var entry = dirList.getEntries().getFirst();
         assertSoftly(softly -> {
             softly.assertThat(entry.getPosition()).describedAs("Entry should has the same position").isEqualTo(0);
             softly.assertThat(entry.getLength()).describedAs("Entry should has the same length").isEqualTo(length);
@@ -220,7 +220,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::rename
+    //region DirList::rename
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                                    | Expected                          |
@@ -244,7 +244,7 @@ class DirEntryListTest {
             int newNameLength,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirectoryOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirList.NotEnoughSpaceException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -252,16 +252,16 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var dirList = new DirList(pos, entries);
         var newName = randomString(newNameLength);
         // When
-        block.rename(oldName, newName);
+        dirList.rename(oldName, newName);
         // Then
         assertSoftly(softly -> {
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
-            softly.assertThat(block.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames.stream().map(s -> s.equals("*") ? newName : s).toList());
-            softly.assertThat(block.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
-            softly.assertThat(block.isDirty()).isTrue();
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getLength).containsExactlyElementsOf(expectedLengths);
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::getName).containsExactlyElementsOf(expectedNames.stream().map(s -> s.equals("*") ? newName : s).toList());
+            softly.assertThat(dirList.getEntries()).extracting(DirEntry::isDirty).containsExactlyElementsOf(expectedDirty);
+            softly.assertThat(dirList.isDirty()).isTrue();
         });
     }
 
@@ -285,11 +285,11 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var dirList = new DirList(pos, entries);
         String newName = randomString(newNameLength);
         // When Then
-        assertThatThrownBy(() -> block.rename(oldName, newName))
-                .isInstanceOf(DirEntryListOfMemoryException.class)
+        assertThatThrownBy(() -> dirList.rename(oldName, newName))
+                .isInstanceOf(DirList.NotEnoughSpaceException.class)
                 .hasMessageContaining("Not enough space");
     }
     //endregion

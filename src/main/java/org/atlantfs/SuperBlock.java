@@ -5,8 +5,8 @@ import java.nio.ByteBuffer;
 
 final class SuperBlock implements Block {
 
-    public static final int LENGTH = 2 + 2 + 4 + 4 + 4 + 4 + 4;
-    public static final short MAGIC = (short) 0xEF54;
+    static final int LENGTH = 2 + 2 + 4 + 4 + 4 + 4 + 4;
+    static final short MAGIC = (short) 0xEF54;
 
     private int blockSize;
     private int inodeSize;

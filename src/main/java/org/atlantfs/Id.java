@@ -1,6 +1,6 @@
 package org.atlantfs;
 
-interface AbstractId {
+interface Id {
 
     int value();
 

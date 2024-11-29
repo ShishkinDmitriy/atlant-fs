@@ -19,7 +19,7 @@ interface Block {
 
     void delete() throws IOException;
 
-    record Id(int value) implements AbstractId {
+    record Id(int value) implements org.atlantfs.Id {
 
         private static final Logger log = Logger.getLogger(Block.Id.class.getName());
 
@@ -44,10 +44,10 @@ interface Block {
                 log.warning(() -> "Received negative block id [address=" + address + ", buffer=" + HexFormat.ofDelimiter(" ").formatHex(array) + "]");
                 throw new RuntimeException();
             }
-            return Id.of(address);
+            return Block.Id.of(address);
         }
 
-        public void write(ByteBuffer buffer) {
+        void write(ByteBuffer buffer) {
             buffer.putInt(value);
         }
 
@@ -85,12 +85,12 @@ interface Block {
         private final Id id;
         private SoftReference<B> reference;
 
-        public Pointer(Id id) {
+        Pointer(Id id) {
             this.id = id;
             this.reference = new SoftReference<>(null);
         }
 
-        public Pointer(B value) {
+        Pointer(B value) {
             this.id = value.id();
             this.reference = new SoftReference<>(value);
         }
@@ -131,7 +131,7 @@ interface Block {
 
     }
 
-    record Range(Id from, int length) implements AbstractRange<Id> {
+    record Range(Id from, int length) implements org.atlantfs.Range<Id> {
 
         static Range of(Id from, int length) {
             assert from.value >= 0;

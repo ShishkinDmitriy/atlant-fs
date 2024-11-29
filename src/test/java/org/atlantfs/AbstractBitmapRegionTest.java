@@ -37,13 +37,13 @@ class AbstractBitmapRegionTest {
     @Mock
     SuperBlock superBlock;
 
-    record Id(int value) implements AbstractId {
+    record Id(int value) implements org.atlantfs.Id {
     }
 
-    record Range(Id from, int length) implements AbstractRange<Id> {
+    record Range(Id from, int length) implements org.atlantfs.Range<Id> {
     }
 
-    AbstractBitmapRegion<Id, Range> bitmapRegion;
+    BitmapRegion<Id, Range> bitmapRegion;
 
     @BeforeEach
     void beforeEach() {
@@ -53,7 +53,7 @@ class AbstractBitmapRegionTest {
         lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(superBlock.firstBlockOfInodeBitmap()).thenReturn(BITMAP_REGION_FIRST_BLOCK);
         lenient().when(superBlock.numberOfInodeBitmaps()).thenReturn(BITMAP_REGION_NUMBER_OF_BLOCKS);
-        bitmapRegion = new AbstractBitmapRegion<>(fileSystem) {
+        bitmapRegion = new BitmapRegion<>(fileSystem) {
 
             @Override
             public Block.Id firstBlock() {
@@ -103,7 +103,7 @@ class AbstractBitmapRegionTest {
             " ffff ffff ffff ffef |   60 |    3 ",
     }, delimiter = '|')
     @ParameterizedTest(name = "Given blocks [{0}] when reserve single item then should return id [{1}], and current bitmap should be changed to [{2}]")
-    void reserve_should_findFirstFreeBitInRequiredBlock(String blocksHex, int expected, int expectedCurrent) throws BitmapRegionOutOfMemoryException {
+    void reserve_should_findFirstFreeBitInRequiredBlock(String blocksHex, int expected, int expectedCurrent) throws BitmapRegion.NotEnoughSpaceException {
         // Given
         var blocks = blocks(blocksHex);
         configureFileSystem(blocks);
@@ -121,7 +121,7 @@ class AbstractBitmapRegionTest {
         configureFileSystem(blocks);
         // When Then
         assertThatThrownBy(bitmapRegion::reserve)
-                .isInstanceOf(BitmapRegionOutOfMemoryException.class);
+                .isInstanceOf(BitmapRegion.NotEnoughSpaceException.class);
     }
 
     @Test
@@ -131,7 +131,7 @@ class AbstractBitmapRegionTest {
         configureFileSystem(blocks);
         // When Then
         assertThatThrownBy(() -> bitmapRegion.reserve(2))
-                .isInstanceOf(BitmapRegionOutOfMemoryException.class);
+                .isInstanceOf(BitmapRegion.NotEnoughSpaceException.class);
     }
     //endregion
 
@@ -162,7 +162,7 @@ class AbstractBitmapRegionTest {
     //endregion
 
     @Test
-    void reserveAllThenFree() throws BitmapRegionOutOfMemoryException {
+    void reserveAllThenFree() throws BitmapRegion.NotEnoughSpaceException {
         // Given
         var blocks = blocks("0000 0000 0000 0000");
         configureFileSystem(blocks);

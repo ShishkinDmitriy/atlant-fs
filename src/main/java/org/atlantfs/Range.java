@@ -1,6 +1,6 @@
 package org.atlantfs;
 
-interface AbstractRange<K extends AbstractId> {
+interface Range<K extends Id> {
 
     K from();
 

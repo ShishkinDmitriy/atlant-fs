@@ -3,7 +3,7 @@ package org.atlantfs;
 /**
  * Represent several blocks region with bitmap about free data blocks.
  */
-class DataBitmapRegion extends AbstractBitmapRegion<Block.Id, Block.Range> {
+class DataBitmapRegion extends BitmapRegion<Block.Id, Block.Range> {
 
     DataBitmapRegion(AtlantFileSystem fileSystem) {
         super(fileSystem);

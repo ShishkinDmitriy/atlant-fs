@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirTree implements DirectoryOperations {
+class DirTree implements DirOperations {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;
@@ -36,7 +36,7 @@ class DirTree implements DirectoryOperations {
             block = dirTreeNode.get(name);
         }
         var buffer = fileSystem.readBlock(block);
-        var dirEntryList = DirEntryList.read(buffer);
+        var dirEntryList = DirList.read(buffer);
         return dirEntryList.get(name);
     }
 
@@ -46,7 +46,7 @@ class DirTree implements DirectoryOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         throw new UnsupportedOperationException();
     }
 

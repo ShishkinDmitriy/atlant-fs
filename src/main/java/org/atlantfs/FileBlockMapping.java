@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
-class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIblock {
+class FileBlockMapping extends BlockMapping<DataBlock> implements FileIblock {
 
     private static final Logger log = Logger.getLogger(FileBlockMapping.class.getName());
 
@@ -15,12 +15,12 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     static FileBlockMapping read(AtlantFileSystem inode, ByteBuffer buffer, long size) {
-        var blockMapping = AbstractBlockMapping.read(inode, buffer, FileBlockMapping::new);
+        var blockMapping = BlockMapping.read(inode, buffer, FileBlockMapping::new);
         blockMapping.size = size;
         return blockMapping;
     }
 
-    static FileBlockMapping init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    static FileBlockMapping init(AtlantFileSystem fileSystem, Data data) throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         var result = new FileBlockMapping(fileSystem);
         result.add(DataBlock.init(fileSystem, data));
         result.dirty = true;
@@ -38,7 +38,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws DataOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws Data.NotEnoughSpaceException, BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         var initial = buffer.position();
         var blockSize = blockSize();
         var lastExistingPosition = size - 1;
@@ -113,7 +113,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int read(long position, ByteBuffer buffer) {
         var blockSize = blockSize();
         var totalRead = 0;
         while (buffer.hasRemaining()) {
@@ -130,8 +130,8 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.FILE_BLOCK_MAPPING;
+    public IblockType type() {
+        return IblockType.FILE_BLOCK_MAPPING;
     }
 
     @Override

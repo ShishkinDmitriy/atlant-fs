@@ -5,26 +5,26 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
-abstract class Inode<B extends IBlock> {
+abstract class Inode<B extends Iblock> {
 
     private static final Logger log = Logger.getLogger(Inode.class.getName());
 
-    static final int MIN_LENGTH = 8 + 4 + IBlockType.LENGTH + 3;
+    static final int MIN_LENGTH = 8 + 4 + IblockType.LENGTH + 3;
 
     protected final AtlantFileSystem fileSystem;
 
     protected final transient Id id;
 
-    protected B iBlock;
+    protected B iblock;
 
     protected boolean dirty;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    protected Inode(AtlantFileSystem fileSystem, Id id, B iBlock) {
+    protected Inode(AtlantFileSystem fileSystem, Id id, B iblock) {
         this.fileSystem = fileSystem;
         this.id = id;
-        this.iBlock = iBlock;
+        this.iblock = iblock;
         checkInvariant();
     }
 
@@ -32,7 +32,7 @@ abstract class Inode<B extends IBlock> {
         assert buffer.remaining() == fileSystem.inodeSize() : "Read expects [inodeSize=" + fileSystem.inodeSize() + "] bytes, but actual [remaining=" + buffer.remaining() + "]";
         var size = buffer.getLong();
         var blocksCount = buffer.getInt();
-        var iBlockType = IBlockType.read(buffer);
+        var iBlockType = IblockType.read(buffer);
         buffer.get(); // padding
         buffer.get();
         buffer.get();
@@ -55,21 +55,20 @@ abstract class Inode<B extends IBlock> {
 
     void flush(ByteBuffer buffer) {
         assert buffer.remaining() == inodeSize();
-        buffer.putLong(iBlock.size());
-        buffer.putInt(iBlock.blocksCount());
-        iBlock.type().write(buffer);
+        buffer.putLong(iblock.size());
+        buffer.putInt(iblock.blocksCount());
+        iblock.type().write(buffer);
         buffer.put((byte) 0); // padding
         buffer.put((byte) 0);
         buffer.put((byte) 0);
-        iBlock.flush(buffer);
+        iblock.flush(buffer);
         assert !buffer.hasRemaining();
     }
 
     void delete() throws IOException {
         try {
             beginWrite();
-            iBlock.delete();
-//            fileSystem.freeInode(id);
+            iblock.delete();
         } finally {
             endWrite();
         }
@@ -92,7 +91,7 @@ abstract class Inode<B extends IBlock> {
     }
 
     protected void checkInvariant() {
-        assert iBlock != null : "Iblock should be specified";
+        assert iblock != null : "Iblock should be specified";
     }
 
     int blockSize() {
@@ -103,35 +102,35 @@ abstract class Inode<B extends IBlock> {
         return fileSystem.inodeSize();
     }
 
-    public long size() {
-        return iBlock.size();
+    long size() {
+        return iblock.size();
     }
 
-    public AtlantFileSystem getFileSystem() {
+    AtlantFileSystem getFileSystem() {
         return fileSystem;
     }
 
-    public FileType getFileType() {
-        return iBlock.type().fileType;
+    FileType getFileType() {
+        return iblock.type().fileType;
     }
 
-    public Id getId() {
+    Id getId() {
         return id;
     }
 
-    record Id(int value) implements AbstractId {
+    record Id(int value) implements org.atlantfs.Id {
 
         static final int LENGTH = 4;
 
         /**
          * Inode 0 is used for a null value, which means that there is no inode.
          */
-        public static final Id NULL = new Id(0);
+        static final Id NULL = new Id(0);
 
         /**
          * Inode 1 is used for root directory.
          */
-        public static final Id ROOT = new Id(1);
+        static final Id ROOT = new Id(1);
 
         static Id of(int value) {
             return new Id(value);
@@ -153,7 +152,7 @@ abstract class Inode<B extends IBlock> {
         }
     }
 
-    record Range(Id from, int length) implements AbstractRange<Id> {
+    record Range(Id from, int length) implements org.atlantfs.Range<Id> {
 
         static Range of(Id from, int length) {
             assert from.value >= 0;

@@ -1,4 +1,4 @@
 package org.atlantfs;
 
-interface DirIblock extends IBlock, DirectoryOperations {
+interface DirIblock extends Iblock, DirOperations {
 }

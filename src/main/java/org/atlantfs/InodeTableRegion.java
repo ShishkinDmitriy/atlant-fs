@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.util.function.BiFunction;
 
-class InodeTableRegion implements AbstractRegion {
+class InodeTableRegion implements Region {
 
     private final AtlantFileSystem fileSystem;
     private final Cache<Inode.Id, Inode<?>> cache = new Cache<>();
@@ -18,7 +18,7 @@ class InodeTableRegion implements AbstractRegion {
             try {
                 root = createDirectory();
                 assert root.getId().equals(Inode.Id.ROOT) : "Expected ROOT id, but was [" + root.getId() + "]";
-            } catch (BitmapRegionOutOfMemoryException e) {
+            } catch (BitmapRegion.NotEnoughSpaceException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -35,11 +35,11 @@ class InodeTableRegion implements AbstractRegion {
         return cache.computeIfAbsent(inodeId, fileSystem::readInode);
     }
 
-    FileInode createFile() throws BitmapRegionOutOfMemoryException {
+    FileInode createFile() throws BitmapRegion.NotEnoughSpaceException {
         return (FileInode) createInode(FileInode::init);
     }
 
-    DirInode createDirectory() throws BitmapRegionOutOfMemoryException {
+    DirInode createDirectory() throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var result = DirInode.init(fileSystem, reserved);
@@ -48,7 +48,7 @@ class InodeTableRegion implements AbstractRegion {
         return result;
     }
 
-    private Inode<?> createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegionOutOfMemoryException {
+    private Inode<?> createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var inode = function.apply(fileSystem, reserved);

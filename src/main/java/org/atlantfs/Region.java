@@ -3,7 +3,7 @@ package org.atlantfs;
 /**
  * Represents multiple {@link Block}s as single logical unit - Region.
  */
-interface AbstractRegion {
+interface Region {
 
     Block.Id firstBlock();
 

@@ -39,12 +39,12 @@ class DataIblock implements FileIblock {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionOutOfMemoryException, DataOutOfMemoryException {
+    public int write(long position, ByteBuffer buffer) throws BitmapRegion.NotEnoughSpaceException, Data.NotEnoughSpaceException {
         return data.write(position, buffer);
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataOutOfMemoryException {
+    public int read(long position, ByteBuffer buffer) {
         return data.read(position, buffer);
     }
 
@@ -53,8 +53,8 @@ class DataIblock implements FileIblock {
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.FILE_INLINE_DATA;
+    public IblockType type() {
+        return IblockType.FILE_INLINE_DATA;
     }
 
     @Override
@@ -67,7 +67,7 @@ class DataIblock implements FileIblock {
         return 0;
     }
 
-    public Data data() {
+    Data data() {
         return data;
     }
 
