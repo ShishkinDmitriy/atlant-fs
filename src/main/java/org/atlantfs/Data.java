@@ -80,20 +80,20 @@ class Data implements FileOperations {
         assert data.length >= length;
     }
 
-    public static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+    static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
 
-        public NotEnoughSpaceException() {
+        NotEnoughSpaceException() {
         }
 
-        public NotEnoughSpaceException(String message) {
+        NotEnoughSpaceException(String message) {
             super(message);
         }
 
-        public NotEnoughSpaceException(String message, Throwable cause) {
+        NotEnoughSpaceException(String message, Throwable cause) {
             super(message, cause);
         }
 
-        public NotEnoughSpaceException(Throwable cause) {
+        NotEnoughSpaceException(Throwable cause) {
             super(cause);
         }
 

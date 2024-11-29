@@ -336,7 +336,7 @@ class DirEntry {
         return position;
     }
 
-    public boolean isDirty() {
+    boolean isDirty() {
         return dirty;
     }
 

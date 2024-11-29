@@ -67,7 +67,7 @@ class DataIblock implements FileIblock {
         return 0;
     }
 
-    public Data data() {
+    Data data() {
         return data;
     }
 

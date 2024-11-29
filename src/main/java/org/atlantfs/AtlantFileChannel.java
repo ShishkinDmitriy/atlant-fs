@@ -67,11 +67,11 @@ class AtlantFileChannel implements AutoCloseable {
         AtlantFileChannel.registry.remove();
     }
 
-    public static boolean notExists() {
+    static boolean notExists() {
         return AtlantFileChannel.registry.get() == null;
     }
 
-    public static SeekableByteChannel get() {
+    static SeekableByteChannel get() {
         var existing = AtlantFileChannel.registry.get();
         assert existing != null;
         return existing.channel;

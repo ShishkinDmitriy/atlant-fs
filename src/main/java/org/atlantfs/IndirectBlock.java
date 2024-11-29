@@ -254,9 +254,9 @@ final class IndirectBlock<B extends Block> implements Block {
                 '}';
     }
 
-    public static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+    static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
 
-        public NotEnoughSpaceException(String message) {
+        NotEnoughSpaceException(String message) {
             super(message);
         }
 

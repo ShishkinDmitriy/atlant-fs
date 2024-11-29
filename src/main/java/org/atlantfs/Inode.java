@@ -102,19 +102,19 @@ abstract class Inode<B extends Iblock> {
         return fileSystem.inodeSize();
     }
 
-    public long size() {
+    long size() {
         return iblock.size();
     }
 
-    public AtlantFileSystem getFileSystem() {
+    AtlantFileSystem getFileSystem() {
         return fileSystem;
     }
 
-    public FileType getFileType() {
+    FileType getFileType() {
         return iblock.type().fileType;
     }
 
-    public Id getId() {
+    Id getId() {
         return id;
     }
 
@@ -125,12 +125,12 @@ abstract class Inode<B extends Iblock> {
         /**
          * Inode 0 is used for a null value, which means that there is no inode.
          */
-        public static final Id NULL = new Id(0);
+        static final Id NULL = new Id(0);
 
         /**
          * Inode 1 is used for root directory.
          */
-        public static final Id ROOT = new Id(1);
+        static final Id ROOT = new Id(1);
 
         static Id of(int value) {
             return new Id(value);

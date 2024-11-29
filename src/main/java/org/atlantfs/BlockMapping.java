@@ -18,7 +18,7 @@ abstract class BlockMapping<B extends Block> implements Iblock {
     protected boolean dirty;
     protected final List<Block> dirtyBlocks = new ArrayList<>();
 
-    public BlockMapping(AtlantFileSystem fileSystem) {
+    BlockMapping(AtlantFileSystem fileSystem) {
         this.fileSystem = fileSystem;
     }
 
