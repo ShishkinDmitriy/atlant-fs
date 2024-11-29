@@ -47,11 +47,11 @@ final class IndirectBlock<B extends Block> implements Block {
         Block dirtyBlock;
         Pointer<?> pointer;
         if (depth == 0) {
-            pointer = Pointer.of(leaf, reader);
+            pointer = Pointer.of(leaf);
             dirtyBlock = leaf;
         } else {
             var indirectBlock = init(fileSystem, depth - 1, reader, leaf);
-            pointer = Pointer.of(indirectBlock, id -> IndirectBlock.read(fileSystem, id, depth - 1, reader));
+            pointer = Pointer.of(indirectBlock);
             dirtyBlock = indirectBlock;
         }
         var result = new IndirectBlock<>(fileSystem, fileSystem.reserveBlock(), depth, reader);
@@ -76,11 +76,7 @@ final class IndirectBlock<B extends Block> implements Block {
             if (value.equals(Id.ZERO)) { // Use 0 for terminating symbol
                 break;
             }
-            if (depth == 0) { // Has pointers to leafs
-                indirectBlock.pointers.add(Pointer.of(value, reader));
-            } else { // Has pointers to another indirect blocks
-                indirectBlock.pointers.add(Pointer.of(value, idd -> IndirectBlock.read(fileSystem, idd, depth - 1, reader)));
-            }
+            indirectBlock.pointers.add(Pointer.of(value));
         }
         indirectBlock.size = indirectBlock.readSize();
         return indirectBlock;
@@ -93,7 +89,8 @@ final class IndirectBlock<B extends Block> implements Block {
         assert !pointers.isEmpty();
         var full = (pointers.size() - 1) * maxSize(blockSize(), depth - 1);
         //noinspection unchecked
-        IndirectBlock<B> indirectBlock = (IndirectBlock<B>) pointers.getLast().get();
+        var pointer = (Pointer<IndirectBlock<?>>) pointers.getLast();
+        var indirectBlock = pointer.computeIfAbsent(this::indirectReader);
         return full + indirectBlock.size;
     }
 
@@ -124,14 +121,14 @@ final class IndirectBlock<B extends Block> implements Block {
             var offset = index / maxSize;
             //noinspection unchecked
             var pointer = (Pointer<IndirectBlock<B>>) pointers.get(offset);
-            var indirectBlock = pointer.get();
+            var indirectBlock = pointer.computeIfAbsent(this::indirectReader);
             return indirectBlock.get(Integer.remainderUnsigned(index, maxSize));
         } else {
             if (index >= idsPerBlock) throw new IndexOutOfBoundsException();
             var offset = Integer.remainderUnsigned(index, idsPerBlock);
             //noinspection unchecked
             var pointer = (Pointer<B>) pointers.get(offset);
-            return pointer.get();
+            return pointer.computeIfAbsent(leafReader);
         }
     }
 
@@ -151,17 +148,17 @@ final class IndirectBlock<B extends Block> implements Block {
             if (pointers.size() > offset) {
                 //noinspection unchecked
                 var pointer = (Pointer<IndirectBlock<B>>) pointers.get(offset);
-                var indirectBlock = pointer.get();
+                var indirectBlock = pointer.computeIfAbsent(this::indirectReader);
                 indirectBlock.add(Integer.remainderUnsigned(index, maxSize), leaf);
                 dirtyBlocks.add(indirectBlock);
             } else {
                 var newChain = init(fileSystem, depth - 1, leafReader, leaf);
-                pointers.add(Pointer.of(newChain, this::indirectReader));
+                pointers.add(Pointer.of(newChain));
                 dirtyBlocks.add(newChain);
             }
         } else {
             if (index >= idsPerBlock(blockSize())) throw new IndexOutOfBoundsException();
-            pointers.add(Pointer.of(leaf, leafReader));
+            pointers.add(Pointer.of(leaf));
             dirtyBlocks.add(leaf);
         }
         size++;
@@ -175,8 +172,10 @@ final class IndirectBlock<B extends Block> implements Block {
             fileSystem.freeBlocks(ids);
             return;
         }
+        //noinspection unchecked
         pointers.stream()
-                .map(Pointer::get)
+                .map(pointer -> (Pointer<IndirectBlock<?>>) pointer)
+                .map(pointer -> pointer.computeIfAbsent(this::indirectReader))
                 .map(block -> (IndirectBlock<?>) block)
                 .forEach(IndirectBlock::delete);
     }
@@ -185,7 +184,10 @@ final class IndirectBlock<B extends Block> implements Block {
         //region preconditions
         if (pointers.size() + 1 > idsPerBlock(blockSize())) throw new IllegalStateException();
         //endregion
-        if (pointer.get() instanceof IndirectBlock<?> indirectBlock) {
+        if (depth > 0) {
+            //noinspection unchecked
+            var pointer1 = (Pointer<IndirectBlock<?>>) pointer;
+            var indirectBlock = pointer1.computeIfAbsent(this::indirectReader);
             size += indirectBlock.size;
         } else {
             size++;

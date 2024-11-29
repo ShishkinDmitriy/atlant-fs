@@ -83,36 +83,24 @@ interface Block {
     class Pointer<B extends Block> {
 
         private final Id id;
-        private final Function<Id, B> reader;
         private SoftReference<B> reference;
 
-        public Pointer(Id id, Function<Id, B> reader) {
+        public Pointer(Id id) {
             this.id = id;
-            this.reader = reader;
             this.reference = new SoftReference<>(null);
         }
 
-        public Pointer(B value, Function<Id, B> reader) {
+        public Pointer(B value) {
             this.id = value.id();
-            this.reader = reader;
             this.reference = new SoftReference<>(value);
         }
 
-        static <B extends Block> Pointer<B> of(int id, Function<Id, B> reader) {
-            return new Pointer<>(Id.of(id), reader);
+        static <B extends Block> Pointer<B> of(Id id) {
+            return new Pointer<>(id);
         }
 
-        static <B extends Block> Pointer<B> of(Id id, Function<Id, B> reader) {
-            return new Pointer<>(id, reader);
-        }
-
-        static <B extends Block> Pointer<B> of(B value, Function<Id, B> reader) {
-            return new Pointer<>(value, reader);
-        }
-
-        static <B extends Block> Pointer<B> read(ByteBuffer buffer, Function<Id, B> reader) {
-            var value = Id.read(buffer);
-            return Pointer.of(value, reader);
+        static <B extends Block> Pointer<B> of(B value) {
+            return new Pointer<>(value);
         }
 
         void flush(ByteBuffer buffer) {
@@ -123,7 +111,7 @@ interface Block {
             return id;
         }
 
-        B get() {
+        B computeIfAbsent(Function<Id, B> reader) {
             var result = reference.get();
             if (result != null) {
                 return result;

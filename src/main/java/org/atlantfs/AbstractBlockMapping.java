@@ -32,18 +32,18 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
                 break;
             }
             if (result.directs.size() < numberOfDirectBlocks) {
-                result.directs.add(Block.Pointer.of(value, result::readBlock));
+                result.directs.add(Block.Pointer.of(value));
             } else {
-                var depth = result.indirects.size();
-                var pointer = Block.Pointer.of(value, id -> result.readIndirectBlock(id, depth));
-                result.indirects.add(pointer);
+                result.indirects.add(Block.Pointer.of(value));
             }
         }
         var directBlocksCount = result.directs.size();
-        var indirectBlocksCount = result.indirects.stream()
-                .map(Block.Pointer::get)
-                .mapToInt(IndirectBlock::size)
-                .sum();
+        var indirectBlocksCount = 0;
+        for (int i = 0; i < result.indirects.size(); i++) {
+            var finalI = i;
+            var indirectBlock = result.indirects.get(i).computeIfAbsent(id -> result.readIndirectBlock(id, finalI));
+            indirectBlocksCount += indirectBlock.size();
+        }
         result.blocksCount = directBlocksCount + indirectBlocksCount;
         buffer.position(position + fileSystem.iblockSize());
         return result;
@@ -67,13 +67,14 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
     B get(int blockNumber) {
         log.finer(() -> "Resolving [blockNumber=" + blockNumber + "]...");
         if (blockNumber < directs.size()) {
-            var result = directs.get(blockNumber).get();
+            var result = directs.get(blockNumber).computeIfAbsent(this::readBlock);
             log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + result + "] by direct");
             return result;
         }
         int index = blockNumber - directs.size();
-        for (var pointer : indirects) {
-            var indirectBlock = pointer.get();
+        for (int i = 0; i < indirects.size(); i++) {
+            int finalI = i;
+            var indirectBlock = indirects.get(i).computeIfAbsent(id -> this.readIndirectBlock(id, finalI));
             if (index < indirectBlock.maxSize()) {
                 var result = indirectBlock.get(index);
                 log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + ", blockId=" + result + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
@@ -88,7 +89,7 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
         var blockNumber = blocksCount;
         log.finer(() -> "Resolving [blockNumber=" + blockNumber + "]...");
         if (blockNumber < numberOfDirectBlocks(inodeSize())) {
-            directs.add(Block.Pointer.of(block, this::readBlock));
+            directs.add(Block.Pointer.of(block));
             dirtyBlocks.add(block);
             blocksCount++;
             log.fine(() -> "Successfully added [blockId=" + block.id() + ", blockNumber=" + blockNumber + "] by direct");
@@ -99,15 +100,14 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
             if (indirects.size() <= i) {
                 var indirectBlock = IndirectBlock.init(fileSystem, i, this::readBlock, block);
                 assert index < indirectBlock.maxSize();
-                int finalI = i;
-                indirects.add(Block.Pointer.of(indirectBlock, id -> readIndirectBlock(id, finalI)));
+                indirects.add(Block.Pointer.of(indirectBlock));
                 dirtyBlocks.add(indirectBlock);
                 blocksCount++;
                 log.fine(() -> "Successfully resolved [blockNumber=" + blockNumber + "] by [" + indirectBlock.depth() + 1 + "] level indirect");
                 return;
             }
-            var pointer = indirects.get(i);
-            var indirectBlock = pointer.get();
+            int finalI1 = i;
+            var indirectBlock = indirects.get(i).computeIfAbsent(id -> this.readIndirectBlock(id, finalI1));
             if (index < indirectBlock.maxSize()) {
                 indirectBlock.add(block);
                 dirtyBlocks.add(indirectBlock);
@@ -126,7 +126,12 @@ abstract class AbstractBlockMapping<B extends Block> implements IBlock {
                 .map(Block.Pointer::id)
                 .toList();
         fileSystem.freeBlocks(directIds);
-        indirects.stream().map(Block.Pointer::get).forEach(IndirectBlock::delete);
+        for (int i = 0; i < indirects.size(); i++) {
+            Block.Pointer<IndirectBlock<B>> pointer = indirects.get(i);
+            int finalI1 = i;
+            IndirectBlock<?> block = pointer.computeIfAbsent(id -> this.readIndirectBlock(id, finalI1));
+            block.delete();
+        }
     }
 
     abstract B readBlock(Block.Id id);

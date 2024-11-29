@@ -17,6 +17,7 @@ import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -77,7 +78,7 @@ class IndirectBlockTest {
             softly.assertThat(chain).extracting(IndirectBlock::pointers).allMatch(list -> list.size() == 1);
             softly.assertThat(chain).extracting(IndirectBlock::size).allMatch(value -> value == 1);
             softly.assertThat(chain).extracting(IndirectBlock::dirtyBlocks).extracting(blocks -> blocks.stream().map(Block::id).toList()).containsExactlyElementsOf(expectedDirtyBlockIds);
-            softly.assertThat(chain.getLast()).extracting(block -> block.pointers().getFirst().get()).isEqualTo(leaf);
+            softly.assertThat(chain.getLast()).extracting(block -> block.pointers().getFirst().computeIfAbsent(_ -> fail())).isEqualTo(leaf);
         });
     }
 
@@ -280,16 +281,16 @@ class IndirectBlockTest {
             var bounds = lastIndex / maxSize;
             for (int i = 0; i < bounds; i++) {
                 var subtree = constructTreeInternal(blockSize, depth - 1, maxSize - 1);
-                var pointer = Block.Pointer.of(subtree, reader);
+                var pointer = Block.Pointer.of(subtree);
                 block.addPointer(pointer);
             }
             var subtree = constructTreeInternal(blockSize, depth - 1, lastIndex % maxSize);
-            var pointer = Block.Pointer.of(subtree, reader);
+            var pointer = Block.Pointer.of(subtree);
             block.addPointer(pointer);
         } else {
             for (int i = 0; i <= lastIndex; i++) {
                 var reserved = reserveForLeaf();
-                var pointer = Block.Pointer.of(reserved, reader);
+                var pointer = Block.Pointer.of(reserved);
                 block.addPointer(pointer);
             }
         }
@@ -308,7 +309,7 @@ class IndirectBlockTest {
         var result = new ArrayList<IndirectBlock<?>>();
         while (block instanceof IndirectBlock<?> indirectBlock) {
             result.add(indirectBlock);
-            block = indirectBlock.pointers().getFirst().get();
+            block = indirectBlock.pointers().getFirst().computeIfAbsent(_ -> fail());
         }
         return result;
     }
