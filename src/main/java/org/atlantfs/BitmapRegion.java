@@ -14,9 +14,9 @@ import java.util.stream.Collectors;
  * @param <K> the type of item identifier
  * @param <R> the type of items range
  */
-abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRange<K>> implements AbstractRegion {
+abstract class BitmapRegion<K extends Id, R extends Range<K>> implements Region {
 
-    private static final Logger log = Logger.getLogger(AbstractBitmapRegion.class.getName());
+    private static final Logger log = Logger.getLogger(BitmapRegion.class.getName());
 
     /**
      * File system.
@@ -35,7 +35,7 @@ abstract class AbstractBitmapRegion<K extends AbstractId, R extends AbstractRang
      */
     private final AtomicInteger current = new AtomicInteger();
 
-    AbstractBitmapRegion(AtlantFileSystem fileSystem) {
+    BitmapRegion(AtlantFileSystem fileSystem) {
         this.fileSystem = fileSystem;
     }
 

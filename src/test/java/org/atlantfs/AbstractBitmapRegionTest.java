@@ -37,13 +37,13 @@ class AbstractBitmapRegionTest {
     @Mock
     SuperBlock superBlock;
 
-    record Id(int value) implements AbstractId {
+    record Id(int value) implements org.atlantfs.Id {
     }
 
-    record Range(Id from, int length) implements AbstractRange<Id> {
+    record Range(Id from, int length) implements org.atlantfs.Range<Id> {
     }
 
-    AbstractBitmapRegion<Id, Range> bitmapRegion;
+    BitmapRegion<Id, Range> bitmapRegion;
 
     @BeforeEach
     void beforeEach() {
@@ -53,7 +53,7 @@ class AbstractBitmapRegionTest {
         lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(superBlock.firstBlockOfInodeBitmap()).thenReturn(BITMAP_REGION_FIRST_BLOCK);
         lenient().when(superBlock.numberOfInodeBitmaps()).thenReturn(BITMAP_REGION_NUMBER_OF_BLOCKS);
-        bitmapRegion = new AbstractBitmapRegion<>(fileSystem) {
+        bitmapRegion = new BitmapRegion<>(fileSystem) {
 
             @Override
             public Block.Id firstBlock() {

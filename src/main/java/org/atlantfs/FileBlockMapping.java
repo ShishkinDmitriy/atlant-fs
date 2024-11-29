@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
-class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIblock {
+class FileBlockMapping extends BlockMapping<DataBlock> implements FileIblock {
 
     private static final Logger log = Logger.getLogger(FileBlockMapping.class.getName());
 
@@ -15,7 +15,7 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     static FileBlockMapping read(AtlantFileSystem inode, ByteBuffer buffer, long size) {
-        var blockMapping = AbstractBlockMapping.read(inode, buffer, FileBlockMapping::new);
+        var blockMapping = BlockMapping.read(inode, buffer, FileBlockMapping::new);
         blockMapping.size = size;
         return blockMapping;
     }

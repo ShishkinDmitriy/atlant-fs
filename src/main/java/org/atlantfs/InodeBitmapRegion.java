@@ -3,7 +3,7 @@ package org.atlantfs;
 /**
  * Represent several blocks region with bitmap about free inodes.
  */
-class InodeBitmapRegion extends AbstractBitmapRegion<Inode.Id, Inode.Range> {
+class InodeBitmapRegion extends BitmapRegion<Inode.Id, Inode.Range> {
 
     InodeBitmapRegion(AtlantFileSystem fileSystem) {
         super(fileSystem);

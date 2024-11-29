@@ -118,7 +118,7 @@ abstract class Inode<B extends Iblock> {
         return id;
     }
 
-    record Id(int value) implements AbstractId {
+    record Id(int value) implements org.atlantfs.Id {
 
         static final int LENGTH = 4;
 
@@ -152,7 +152,7 @@ abstract class Inode<B extends Iblock> {
         }
     }
 
-    record Range(Id from, int length) implements AbstractRange<Id> {
+    record Range(Id from, int length) implements org.atlantfs.Range<Id> {
 
         static Range of(Id from, int length) {
             assert from.value >= 0;

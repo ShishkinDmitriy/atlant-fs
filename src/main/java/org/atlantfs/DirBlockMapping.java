@@ -7,7 +7,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-class DirBlockMapping extends AbstractBlockMapping<DirListBlock> implements DirIblock {
+class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
 
     private static final Logger log = Logger.getLogger(DirBlockMapping.class.getName());
 
@@ -16,7 +16,7 @@ class DirBlockMapping extends AbstractBlockMapping<DirListBlock> implements DirI
     }
 
     static DirBlockMapping read(AtlantFileSystem inode, ByteBuffer buffer) {
-        return AbstractBlockMapping.read(inode, buffer, DirBlockMapping::new);
+        return BlockMapping.read(inode, buffer, DirBlockMapping::new);
     }
 
     static DirBlockMapping init(AtlantFileSystem inode, DirList dirList) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {

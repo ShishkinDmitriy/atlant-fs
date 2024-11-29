@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
-abstract class AbstractBlockMapping<B extends Block> implements Iblock {
+abstract class BlockMapping<B extends Block> implements Iblock {
 
-    private static final Logger log = Logger.getLogger(AbstractBlockMapping.class.getName());
+    private static final Logger log = Logger.getLogger(BlockMapping.class.getName());
 
     protected final AtlantFileSystem fileSystem;
     protected final List<Block.Pointer<B>> directs = new ArrayList<>();
@@ -18,11 +18,11 @@ abstract class AbstractBlockMapping<B extends Block> implements Iblock {
     protected boolean dirty;
     protected final List<Block> dirtyBlocks = new ArrayList<>();
 
-    public AbstractBlockMapping(AtlantFileSystem fileSystem) {
+    public BlockMapping(AtlantFileSystem fileSystem) {
         this.fileSystem = fileSystem;
     }
 
-    static <B extends Block, M extends AbstractBlockMapping<B>> M read(AtlantFileSystem fileSystem, ByteBuffer buffer, Function<AtlantFileSystem, M> factory) {
+    static <B extends Block, M extends BlockMapping<B>> M read(AtlantFileSystem fileSystem, ByteBuffer buffer, Function<AtlantFileSystem, M> factory) {
         var result = factory.apply(fileSystem);
         var position = buffer.position();
         var numberOfDirectBlocks = numberOfDirectBlocks(fileSystem.inodeSize());

@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.util.function.BiFunction;
 
-class InodeTableRegion implements AbstractRegion {
+class InodeTableRegion implements Region {
 
     private final AtlantFileSystem fileSystem;
     private final Cache<Inode.Id, Inode<?>> cache = new Cache<>();
