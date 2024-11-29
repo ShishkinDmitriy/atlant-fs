@@ -1,0 +1,22 @@
+@startuml
+hide empty members
+
+interface AbstractRegion {
+    +firstBlock(): Block.Id
+    +numberOfBlocks(): int
+    +blockSize(): int
+}
+
+abstract class AbstractBitmapRegion<K, V>
+
+class InodeBitmapRegion<Inode.Id, Inode.Range>
+class DataBitmapRegion<Block.Id, Block.Range>
+class InodeTableRegion
+
+AbstractRegion <|-- AbstractBitmapRegion
+AbstractRegion <|--- InodeTableRegion
+
+AbstractBitmapRegion <|-- InodeBitmapRegion
+AbstractBitmapRegion <|-- DataBitmapRegion
+
+@enduml

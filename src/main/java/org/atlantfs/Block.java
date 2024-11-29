@@ -1,22 +1,23 @@
 package org.atlantfs;
 
+import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 interface Block {
 
-//    private Id id;
-//    private int length;
-//    private T content;
-//    private Class<T> type;
-//
-//    public Block(Id id, int length, T content, Class<T> type) {
-//        this.id = id;
-//        this.length = length;
-//        this.content = content;
-//        this.type = type;
-//    }
+    Id id();
+
+    boolean isDirty();
+
+    void flush();
+
+    void delete() throws IOException;
 
     record Id(int value) implements AbstractId {
 
@@ -79,6 +80,57 @@ interface Block {
 
     }
 
+    class Pointer<B extends Block> {
+
+        private final Id id;
+        private SoftReference<B> reference;
+
+        public Pointer(Id id) {
+            this.id = id;
+            this.reference = new SoftReference<>(null);
+        }
+
+        public Pointer(B value) {
+            this.id = value.id();
+            this.reference = new SoftReference<>(value);
+        }
+
+        static <B extends Block> Pointer<B> of(Id id) {
+            return new Pointer<>(id);
+        }
+
+        static <B extends Block> Pointer<B> of(B value) {
+            return new Pointer<>(value);
+        }
+
+        void flush(ByteBuffer buffer) {
+            id.write(buffer);
+        }
+
+        Id id() {
+            return id;
+        }
+
+        B computeIfAbsent(Function<Id, B> reader) {
+            var result = reference.get();
+            if (result != null) {
+                return result;
+            }
+            result = reader.apply(id);
+            reference = new SoftReference<>(result);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Block.Pointer{" +
+                    "id=" + id.value +
+                    ", reference=" + reference.get() +
+                    '}';
+        }
+
+    }
+
     record Range(Id from, int length) implements AbstractRange<Id> {
 
         static Range of(Id from, int length) {
@@ -87,10 +139,17 @@ interface Block {
             return new Range(from, length);
         }
 
+        static List<Id> flat(List<Range> ranges) {
+            return ranges.stream()
+                    .flatMap(range -> IntStream.range(0, range.length())
+                            .mapToObj(i -> range.from().plus(i)))
+                    .toList();
+        }
+
         @Override
         public String toString() {
             return "Block.Range{" +
-                    "from=" + from +
+                    "from=" + from.value +
                     ", length=" + length +
                     '}';
         }

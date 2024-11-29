@@ -184,7 +184,7 @@ class WriteTest {
                 .inodeSize(32)
                 .numberOfBlockBitmaps(3)
                 .numberOfInodeBitmaps(1)
-                .numberOfInodeTables(80);
+                .numberOfInodeTables(100);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {
             // When
             Files.walkFileTree(projectDir(), new SimpleFileVisitor<>() {

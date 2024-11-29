@@ -1,11 +1,10 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirTree implements DirectoryOperations, IBlock {
+class DirTree implements DirectoryOperations {
 
     private DirTreeNode root;
     private final AtlantFileSystem fileSystem;
@@ -19,17 +18,12 @@ class DirTree implements DirectoryOperations, IBlock {
     }
 
     @Override
-    public void write(ByteBuffer buffer) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Iterator<DirEntry> iterator() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) {
         throw new UnsupportedOperationException();
     }
 
@@ -54,11 +48,6 @@ class DirTree implements DirectoryOperations, IBlock {
     @Override
     public void delete(String name) throws NoSuchFileException {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void delete() throws DirectoryNotEmptyException {
-
     }
 
 }

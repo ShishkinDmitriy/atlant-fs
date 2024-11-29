@@ -47,7 +47,7 @@ class SoapOperaTest {
         var atlantConfig = AtlantConfig.defaults()
                 .blockSize(512)
                 .inodeSize(32)
-                .numberOfBlockBitmaps(3)
+                .numberOfBlockBitmaps(4)
                 .numberOfInodeBitmaps(1)
                 .numberOfInodeTables(160);
         // Given

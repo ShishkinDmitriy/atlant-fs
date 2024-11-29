@@ -57,11 +57,15 @@ public class AtlantPath implements Path {
     }
 
     @Override
-    public Path getRoot() {
+    public AtlantPath getRoot() {
         if (isAbsolute()) {
             return new AtlantPath(fileSystem, new byte[]{this.path[0]});
         }
         return null;
+    }
+
+    public boolean isRoot() {
+        return (path.length == 1) && (path[0] == '/');
     }
 
     @Override
@@ -82,7 +86,7 @@ public class AtlantPath implements Path {
     }
 
     @Override
-    public Path getParent() {
+    public AtlantPath getParent() {
         initOffsets();
         int nbOffsets = offsets.length;
         if (nbOffsets == 0) {

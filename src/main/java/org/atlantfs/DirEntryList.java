@@ -1,7 +1,6 @@
 package org.atlantfs;
 
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,7 +13,7 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations, Block, IBlock {
+final class DirEntryList implements DirectoryOperations {
 
     private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
 
@@ -44,6 +43,10 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         checkInvariant();
     }
 
+    static DirEntryList init(int length) {
+        return new DirEntryList(length);
+    }
+
     static DirEntryList read(ByteBuffer buffer) {
         List<DirEntry> entries = new ArrayList<>();
         var length = buffer.remaining();
@@ -69,10 +72,9 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return block;
     }
 
-    @Override
-    public void write(ByteBuffer buffer) {
+    public void flush(ByteBuffer buffer) {
         assert buffer.remaining() == length;
-        entries.forEach(entry -> entry.write(buffer));
+        entries.forEach(entry -> entry.flush(buffer));
         assert !buffer.hasRemaining();
     }
 
@@ -82,14 +84,14 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
     }
 
     @Override
-    public DirEntry add(Inode.Id inode, FileType fileType, String name) throws DirectoryOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
-            newEntry.init(inode, fileType, name);
+            newEntry.init(id, fileType, name);
         } else {
             var index = findByAvailableSpace(name);
-            newEntry = entries.get(index).split(inode, fileType, name);
+            newEntry = entries.get(index).split(id, fileType, name);
             entries.add(index + 1, newEntry);
         }
         checkInvariant();
@@ -125,11 +127,6 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         log.finer(() -> "Found entry to delete [index=" + index + "]");
         delete(index);
         checkInvariant();
-    }
-
-    @Override
-    public void delete() throws DirectoryNotEmptyException {
-
     }
 
     void delete(int index) {
@@ -207,7 +204,7 @@ final class DirEntryList implements DirectoryOperations, Block, IBlock {
         return false;
     }
 
-    boolean isDirty() {
+    public boolean isDirty() {
         return entries.stream().anyMatch(DirEntry::isDirty);
     }
 

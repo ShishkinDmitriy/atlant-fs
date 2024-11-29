@@ -1,6 +1,6 @@
 package org.atlantfs;
 
-public class BitmapRegionOutOfMemoryException extends AtlantFileSystemException {
+public class BitmapRegionOutOfMemoryException extends AbstractOutOfMemoryException {
 
     public BitmapRegionOutOfMemoryException() {
     }

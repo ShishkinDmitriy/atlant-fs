@@ -1,0 +1,13 @@
+@startuml
+
+interface DirOperations {
+    +iterator(): Iterator<DirEntry>
+    +addDir(id: Inode.Id, name: String): DirEntry
+    +addFile(id: Inode.Id, name: String): DirEntry
+    +add(id: Inode.Id, fileType: FileType, name: String): DirEntry
+    +get(name: String): DirEntry
+    +rename(name: String, newName: String): void
+    +delete(name: String): void
+}
+
+@enduml

@@ -31,6 +31,7 @@ class InodeTableRegionTest {
         lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
         lenient().when(fileSystem.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(fileSystem.inodeSize()).thenReturn(INODE_SIZE);
+        lenient().when(fileSystem.iblockSize()).thenReturn(INODE_SIZE - Inode.MIN_LENGTH);
         lenient().when(fileSystem.reserveInode()).thenReturn(Inode.Id.ROOT).thenReturn(Inode.Id.of(45));
         lenient().when(superBlock.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(superBlock.inodeSize()).thenReturn(INODE_SIZE);
@@ -83,7 +84,7 @@ class InodeTableRegionTest {
             "     33 |       4096 |        128 |   150 |      151 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void calcBlock_should_calculateBlockId(int inodeId, int blockSize, int inodeSize, int firstBlock, int expectedResult, @Mock Inode root) {
+    void calcBlock_should_calculateBlockId(int inodeId, int blockSize, int inodeSize, int firstBlock, int expectedResult, @Mock DirInode root) {
         // Given
         var inodeTable = new InodeTableRegion(fileSystem, root);
         when(fileSystem.inodeSize()).thenReturn(inodeSize);
@@ -107,7 +108,7 @@ class InodeTableRegionTest {
             "     33 |       4096 |        128 |        0 ",
     }, delimiter = '|')
     @ParameterizedTest
-    void calcPosition_should_calculatePositionInsideBlock(int inodeId, int blockSize, int inodeSize, int expectedResult, @Mock Inode root) {
+    void calcPosition_should_calculatePositionInsideBlock(int inodeId, int blockSize, int inodeSize, int expectedResult, @Mock DirInode root) {
         // Given
         var inodeTable = new InodeTableRegion(fileSystem, root);
         when(fileSystem.inodeSize()).thenReturn(inodeSize);
