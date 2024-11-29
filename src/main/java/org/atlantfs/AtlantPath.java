@@ -64,6 +64,10 @@ public class AtlantPath implements Path {
         return null;
     }
 
+    public boolean isRoot() {
+        return (path.length == 1) && (path[0] == '/');
+    }
+
     @Override
     public Path getFileName() {
         initOffsets();
