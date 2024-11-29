@@ -121,7 +121,7 @@ final class DirList implements DirOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         log.fine(() -> "Deleting entry [name=" + name + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to delete [index=" + index + "]");

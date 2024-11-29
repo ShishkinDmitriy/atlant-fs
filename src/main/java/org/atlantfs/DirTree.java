@@ -46,7 +46,7 @@ class DirTree implements DirOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         throw new UnsupportedOperationException();
     }
 

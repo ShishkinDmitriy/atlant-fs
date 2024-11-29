@@ -76,8 +76,8 @@ class DirListBlock implements Block, DirOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
-        dirList.delete(name);
+    public void remove(String name) throws NoSuchFileException {
+        dirList.remove(name);
     }
 
     @Override

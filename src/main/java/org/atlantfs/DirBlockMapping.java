@@ -103,11 +103,11 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         for (int i = 0; i < blocksCount; i++) {
             try {
                 var entryList = get(i);
-                entryList.dirList().delete(name);
+                entryList.dirList().remove(name);
                 entryList.flush();
                 return;
             } catch (NoSuchFileException _) {

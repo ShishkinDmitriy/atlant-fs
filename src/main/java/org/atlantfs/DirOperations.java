@@ -21,6 +21,6 @@ interface DirOperations {
 
     void rename(String name, String newName) throws NoSuchFileException, NotEnoughSpaceException;
 
-    void delete(String name) throws NoSuchFileException;
+    void remove(String name) throws NoSuchFileException;
 
 }

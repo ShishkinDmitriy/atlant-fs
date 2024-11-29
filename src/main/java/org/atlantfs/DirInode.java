@@ -71,10 +71,10 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
+    public void remove(String name) throws NoSuchFileException {
         try {
             beginWrite();
-            iblock.delete(name);
+            iblock.remove(name);
             flush();
         } finally {
             endWrite();

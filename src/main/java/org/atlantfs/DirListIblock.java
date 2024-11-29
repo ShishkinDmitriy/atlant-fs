@@ -58,8 +58,8 @@ class DirListIblock implements DirIblock {
     }
 
     @Override
-    public void delete(String name) throws NoSuchFileException {
-        dirList.delete(name);
+    public void remove(String name) throws NoSuchFileException {
+        dirList.remove(name);
     }
 
     @Override
