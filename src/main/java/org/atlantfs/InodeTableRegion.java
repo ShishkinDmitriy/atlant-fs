@@ -18,7 +18,7 @@ class InodeTableRegion implements Region {
             try {
                 root = createDirectory();
                 assert root.getId().equals(Inode.Id.ROOT) : "Expected ROOT id, but was [" + root.getId() + "]";
-            } catch (BitmapRegionNotEnoughSpaceException e) {
+            } catch (BitmapRegion.NotEnoughSpaceException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -35,11 +35,11 @@ class InodeTableRegion implements Region {
         return cache.computeIfAbsent(inodeId, fileSystem::readInode);
     }
 
-    FileInode createFile() throws BitmapRegionNotEnoughSpaceException {
+    FileInode createFile() throws BitmapRegion.NotEnoughSpaceException {
         return (FileInode) createInode(FileInode::init);
     }
 
-    DirInode createDirectory() throws BitmapRegionNotEnoughSpaceException {
+    DirInode createDirectory() throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var result = DirInode.init(fileSystem, reserved);
@@ -48,7 +48,7 @@ class InodeTableRegion implements Region {
         return result;
     }
 
-    private Inode<?> createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegionNotEnoughSpaceException {
+    private Inode<?> createInode(BiFunction<AtlantFileSystem, Inode.Id, Inode> function) throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveInode();
         checkInodeIdLimit(reserved);
         var inode = function.apply(fileSystem, reserved);

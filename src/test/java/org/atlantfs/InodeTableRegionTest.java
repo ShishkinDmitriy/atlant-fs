@@ -27,7 +27,7 @@ class InodeTableRegionTest {
     SuperBlock superBlock;
 
     @BeforeEach
-    void beforeEach() throws BitmapRegionNotEnoughSpaceException {
+    void beforeEach() throws BitmapRegion.NotEnoughSpaceException {
         lenient().when(fileSystem.superBlock()).thenReturn(superBlock);
         lenient().when(fileSystem.blockSize()).thenReturn(BLOCK_SIZE);
         lenient().when(fileSystem.inodeSize()).thenReturn(INODE_SIZE);

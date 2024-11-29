@@ -35,9 +35,9 @@ final class IndirectBlock<B extends Block> implements Block {
      * @param leaf       the leaf block to be immediately added to chain, can't be null
      * @param <B>        the type of leaf block
      * @return first indirect block in the chain
-     * @throws BitmapRegionNotEnoughSpaceException if not enough memory to reserve blocks
+     * @throws BitmapRegion.NotEnoughSpaceException if not enough memory to reserve blocks
      */
-    static <B extends Block> IndirectBlock<B> init(AtlantFileSystem fileSystem, int depth, Function<Id, B> reader, B leaf) throws BitmapRegionNotEnoughSpaceException {
+    static <B extends Block> IndirectBlock<B> init(AtlantFileSystem fileSystem, int depth, Function<Id, B> reader, B leaf) throws BitmapRegion.NotEnoughSpaceException {
         //region preconditions
         if (fileSystem == null) throw new NullPointerException("fileSystem");
         if (depth < 0) throw new IllegalArgumentException("depth");
@@ -132,16 +132,16 @@ final class IndirectBlock<B extends Block> implements Block {
         }
     }
 
-    int add(B leaf) throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    int add(B leaf) throws BitmapRegion.NotEnoughSpaceException, NotEnoughSpaceException {
         //region preconditions
-        if (size + 1 > maxSize(blockSize(), depth)) throw new IndirectBlockNotEnoughSpaceException("");
+        if (size + 1 > maxSize(blockSize(), depth)) throw new NotEnoughSpaceException("");
         //endregion
         var index = size;
         add(index, leaf);
         return index;
     }
 
-    private void add(int index, B leaf) throws BitmapRegionNotEnoughSpaceException {
+    private void add(int index, B leaf) throws BitmapRegion.NotEnoughSpaceException {
         if (depth > 0) {
             var maxSize = maxSize(blockSize(), depth - 1);
             var offset = Integer.divideUnsigned(index, maxSize);
@@ -252,6 +252,14 @@ final class IndirectBlock<B extends Block> implements Block {
                 ", size=" + size +
                 ", dirty=" + isDirty() +
                 '}';
+    }
+
+    public static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+
+        public NotEnoughSpaceException(String message) {
+            super(message);
+        }
+
     }
 
 }

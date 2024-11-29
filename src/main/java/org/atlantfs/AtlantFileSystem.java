@@ -427,21 +427,21 @@ public class AtlantFileSystem extends FileSystem {
         throw new FileAlreadyExistsException("File of type [" + inode.getFileType() + "] already exists, expected [" + FileType.REGULAR_FILE + "]");
     }
 
-    Block.Id reserveBlock() throws BitmapRegionNotEnoughSpaceException {
+    Block.Id reserveBlock() throws BitmapRegion.NotEnoughSpaceException {
         log.finer(() -> "Reserving 1 block...");
         var reserved = dataBitmapRegion.reserve();
         log.fine(() -> "Successfully reserved 1 block [" + reserved + "]");
         return reserved;
     }
 
-    List<Block.Range> reserveBlocks(int size) throws BitmapRegionNotEnoughSpaceException {
+    List<Block.Range> reserveBlocks(int size) throws BitmapRegion.NotEnoughSpaceException {
         log.finer(() -> "Reserving [" + size + "] blocks...");
         var reserved = dataBitmapRegion.reserve(size);
         log.fine(() -> "Successfully reserved [" + size + "] block [" + reserved + "]");
         return reserved;
     }
 
-    Inode.Id reserveInode() throws BitmapRegionNotEnoughSpaceException {
+    Inode.Id reserveInode() throws BitmapRegion.NotEnoughSpaceException {
         log.finer(() -> "Reserving 1 inode...");
         var reserved = inodeBitmapRegion.reserve();
         log.fine(() -> "Successfully reserved 1 inode [" + reserved + "]");
@@ -537,7 +537,7 @@ public class AtlantFileSystem extends FileSystem {
         }
     }
 
-    void writeInode(Inode inode) {
+    void writeInode(Inode<?> inode) {
         var buffer = getInodeByteBuffer();
         inode.flush(buffer);
         buffer.flip();

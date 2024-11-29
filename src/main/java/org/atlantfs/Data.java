@@ -35,10 +35,10 @@ class Data implements FileOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
+    public int write(long position, ByteBuffer buffer) throws Data.NotEnoughSpaceException {
         var targetLength = position + buffer.remaining();
         if (targetLength > data.length) {
-            throw new DataNotEnoughSpaceException();
+            throw new Data.NotEnoughSpaceException();
         }
         var i = 0;
         while (buffer.hasRemaining()) {
@@ -50,7 +50,7 @@ class Data implements FileOperations {
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
+    public int read(long position, ByteBuffer buffer) {
         if (position >= length) {
             return 0;
         }
@@ -78,6 +78,25 @@ class Data implements FileOperations {
     void checkInvariant() {
         assert data != null;
         assert data.length >= length;
+    }
+
+    public static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+
+        public NotEnoughSpaceException() {
+        }
+
+        public NotEnoughSpaceException(String message) {
+            super(message);
+        }
+
+        public NotEnoughSpaceException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        public NotEnoughSpaceException(Throwable cause) {
+            super(cause);
+        }
+
     }
 
 }

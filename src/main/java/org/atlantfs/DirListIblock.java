@@ -7,10 +7,10 @@ import java.util.Iterator;
 
 class DirListIblock implements DirIblock {
 
-    private final DirList entryList;
+    private final DirList dirList;
 
-    private DirListIblock(DirList entryList) {
-        this.entryList = entryList;
+    private DirListIblock(DirList dirList) {
+        this.dirList = dirList;
     }
 
     static DirListIblock init(AtlantFileSystem fileSystem) {
@@ -30,36 +30,36 @@ class DirListIblock implements DirIblock {
 
     @Override
     public void flush(ByteBuffer buffer) {
-        entryList.flush(buffer);
+        dirList.flush(buffer);
     }
 
-    DirList entryList() {
-        return entryList;
+    DirList dirList() {
+        return dirList;
     }
 
     @Override
     public Iterator<DirEntry> iterator() {
-        return entryList.iterator();
+        return dirList.iterator();
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
-        return entryList.add(id, fileType, name);
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirList.NotEnoughSpaceException {
+        return dirList.add(id, fileType, name);
     }
 
     @Override
     public DirEntry get(String name) throws NoSuchFileException {
-        return entryList.get(name);
+        return dirList.get(name);
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
-        entryList.rename(name, newName);
+    public void rename(String name, String newName) throws NoSuchFileException, DirList.NotEnoughSpaceException {
+        dirList.rename(name, newName);
     }
 
     @Override
     public void delete(String name) throws NoSuchFileException {
-        entryList.delete(name);
+        dirList.delete(name);
     }
 
     @Override

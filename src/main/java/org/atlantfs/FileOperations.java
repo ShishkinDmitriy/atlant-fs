@@ -4,8 +4,8 @@ import java.nio.ByteBuffer;
 
 interface FileOperations {
 
-    int write(long position, ByteBuffer buffer) throws BitmapRegionNotEnoughSpaceException, DataNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException;
+    int write(long position, ByteBuffer buffer) throws NotEnoughSpaceException;
 
-    int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException;
+    int read(long position, ByteBuffer buffer);
 
 }

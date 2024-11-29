@@ -84,7 +84,7 @@ final class DirList implements DirOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirList.NotEnoughSpaceException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
@@ -104,7 +104,7 @@ final class DirList implements DirOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirList.NotEnoughSpaceException {
         log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
@@ -160,11 +160,11 @@ final class DirList implements DirOperations {
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
 
-    int findByAvailableSpace(String newName) throws DirNotEnoughSpaceException {
+    int findByAvailableSpace(String newName) throws DirList.NotEnoughSpaceException {
         return IntStream.range(0, entries.size())
                 .filter(i -> entries.get(i).canBeSplit(newName))
                 .findFirst()
-                .orElseThrow(() -> new DirListNotEnoughSpaceException("Not enough space"));
+                .orElseThrow(() -> new DirList.NotEnoughSpaceException("Not enough space"));
     }
 
     public void resize(int newLength) {
@@ -208,10 +208,26 @@ final class DirList implements DirOperations {
         return entries.stream().anyMatch(DirEntry::isDirty);
     }
 
-    // -----------------------------------------------------------------------------------------------------------------
-
     List<DirEntry> getEntries() {
         return entries;
     }
 
+    public static class NotEnoughSpaceException extends org.atlantfs.NotEnoughSpaceException {
+
+        public NotEnoughSpaceException() {
+        }
+
+        public NotEnoughSpaceException(String message) {
+            super(message);
+        }
+
+        public NotEnoughSpaceException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        public NotEnoughSpaceException(Throwable cause) {
+            super(cause);
+        }
+
+    }
 }

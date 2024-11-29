@@ -21,24 +21,24 @@ class DataBlock implements Block, FileOperations {
         return new DataBlock(fileSystem, id, data);
     }
 
-    static DataBlock init(AtlantFileSystem fileSystem) throws BitmapRegionNotEnoughSpaceException {
+    static DataBlock init(AtlantFileSystem fileSystem) throws BitmapRegion.NotEnoughSpaceException {
         return initInternal(fileSystem, Data.init(fileSystem.blockSize()));
     }
 
-    static DataBlock init(AtlantFileSystem fileSystem, byte[] bytes) throws BitmapRegionNotEnoughSpaceException {
+    static DataBlock init(AtlantFileSystem fileSystem, byte[] bytes) throws BitmapRegion.NotEnoughSpaceException {
         assert bytes.length <= fileSystem.blockSize();
         var blockBytes = new byte[fileSystem.blockSize()];
         System.arraycopy(bytes, 0, blockBytes, 0, Math.min(bytes.length, blockBytes.length));
         return initInternal(fileSystem, new Data(blockBytes, bytes.length));
     }
 
-    static DataBlock init(AtlantFileSystem fileSystem, Data data) throws BitmapRegionNotEnoughSpaceException {
+    static DataBlock init(AtlantFileSystem fileSystem, Data data) throws BitmapRegion.NotEnoughSpaceException {
         var bytes = new byte[fileSystem.blockSize()];
         System.arraycopy(data.bytes(), 0, bytes, 0, Math.min(bytes.length, data.bytes().length));
         return initInternal(fileSystem, new Data(bytes, data.size()));
     }
 
-    private static DataBlock initInternal(AtlantFileSystem fileSystem, Data data) throws BitmapRegionNotEnoughSpaceException {
+    private static DataBlock initInternal(AtlantFileSystem fileSystem, Data data) throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveBlock();
         var dataBlock = new DataBlock(fileSystem, reserved, data);
         dataBlock.dirty = true;
@@ -55,12 +55,12 @@ class DataBlock implements Block, FileOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionNotEnoughSpaceException, DataNotEnoughSpaceException {
+    public int write(long position, ByteBuffer buffer) throws BitmapRegion.NotEnoughSpaceException, Data.NotEnoughSpaceException {
         return data.write(position, buffer);
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
+    public int read(long position, ByteBuffer buffer) {
         return data.read(position, buffer);
     }
 

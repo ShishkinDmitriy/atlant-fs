@@ -35,7 +35,7 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
             var result = iblock.add(id, fileType, name);
             flush();
             return result;
-        } catch (DirListNotEnoughSpaceException e) {
+        } catch (DirList.NotEnoughSpaceException e) {
             upgradeInlineDirList();
             var result = iblock.add(id, fileType, name);
             flush();
@@ -61,7 +61,7 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
             beginWrite();
             iblock.rename(name, newName);
             flush();
-        } catch (DirListNotEnoughSpaceException e) {
+        } catch (DirList.NotEnoughSpaceException e) {
             upgradeInlineDirList();
             iblock.rename(name, newName);
             flush();
@@ -81,11 +81,11 @@ class DirInode extends Inode<DirIblock> implements DirOperations {
         }
     }
 
-    private void upgradeInlineDirList() throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    private void upgradeInlineDirList() throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline dir list to block mapping...");
         assert iblock instanceof DirListIblock : "Only DIR_INLINE_LIST can be upgraded";
         var dirEntryList = (DirListIblock) iblock;
-        iblock = DirBlockMapping.init(fileSystem, dirEntryList.entryList());
+        iblock = DirBlockMapping.init(fileSystem, dirEntryList.dirList());
         dirty = true;
         checkInvariant();
     }

@@ -1,6 +1,7 @@
 package org.atlantfs;
 
 public class NotEnoughSpaceException extends AtlantFileSystemException {
+
     public NotEnoughSpaceException() {
     }
 
@@ -15,4 +16,5 @@ public class NotEnoughSpaceException extends AtlantFileSystemException {
     public NotEnoughSpaceException(Throwable cause) {
         super(cause);
     }
+
 }

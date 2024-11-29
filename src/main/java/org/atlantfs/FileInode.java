@@ -18,13 +18,13 @@ class FileInode extends Inode<FileIblock> implements FileOperations {
     }
 
     @Override
-    public int write(long position, ByteBuffer buffer) throws BitmapRegionNotEnoughSpaceException, DataNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    public int write(long position, ByteBuffer buffer) throws NotEnoughSpaceException {
         try {
             beginWrite();
             var written = iblock.write(position, buffer);
             flush();
             return written;
-        } catch (DataNotEnoughSpaceException e) {
+        } catch (Data.NotEnoughSpaceException e) {
             upgradeInlineData();
             var written = iblock.write(position, buffer);
             flush();
@@ -35,7 +35,7 @@ class FileInode extends Inode<FileIblock> implements FileOperations {
     }
 
     @Override
-    public int read(long position, ByteBuffer buffer) throws DataNotEnoughSpaceException {
+    public int read(long position, ByteBuffer buffer) {
         try {
             beginRead();
             var read = iblock.read(position, buffer);
@@ -46,7 +46,7 @@ class FileInode extends Inode<FileIblock> implements FileOperations {
         }
     }
 
-    private void upgradeInlineData() throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    private void upgradeInlineData() throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         log.fine(() -> "Upgrading inode [id=" + id + "] from inline data to block mapping...");
         assert iblock instanceof DataIblock : "Only FILE_INLINE_DATA can be upgraded";
         var data = (DataIblock) iblock;

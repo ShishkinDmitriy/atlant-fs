@@ -103,7 +103,7 @@ class AbstractBitmapRegionTest {
             " ffff ffff ffff ffef |   60 |    3 ",
     }, delimiter = '|')
     @ParameterizedTest(name = "Given blocks [{0}] when reserve single item then should return id [{1}], and current bitmap should be changed to [{2}]")
-    void reserve_should_findFirstFreeBitInRequiredBlock(String blocksHex, int expected, int expectedCurrent) throws BitmapRegionNotEnoughSpaceException {
+    void reserve_should_findFirstFreeBitInRequiredBlock(String blocksHex, int expected, int expectedCurrent) throws BitmapRegion.NotEnoughSpaceException {
         // Given
         var blocks = blocks(blocksHex);
         configureFileSystem(blocks);
@@ -121,7 +121,7 @@ class AbstractBitmapRegionTest {
         configureFileSystem(blocks);
         // When Then
         assertThatThrownBy(bitmapRegion::reserve)
-                .isInstanceOf(BitmapRegionNotEnoughSpaceException.class);
+                .isInstanceOf(BitmapRegion.NotEnoughSpaceException.class);
     }
 
     @Test
@@ -131,7 +131,7 @@ class AbstractBitmapRegionTest {
         configureFileSystem(blocks);
         // When Then
         assertThatThrownBy(() -> bitmapRegion.reserve(2))
-                .isInstanceOf(BitmapRegionNotEnoughSpaceException.class);
+                .isInstanceOf(BitmapRegion.NotEnoughSpaceException.class);
     }
     //endregion
 
@@ -162,7 +162,7 @@ class AbstractBitmapRegionTest {
     //endregion
 
     @Test
-    void reserveAllThenFree() throws BitmapRegionNotEnoughSpaceException {
+    void reserveAllThenFree() throws BitmapRegion.NotEnoughSpaceException {
         // Given
         var blocks = blocks("0000 0000 0000 0000");
         configureFileSystem(blocks);

@@ -7,21 +7,21 @@ import java.util.Iterator;
 class DirListBlock implements Block, DirOperations {
 
     private final Id id;
-    private final DirList entryList;
+    private final DirList dirList;
     private final AtlantFileSystem fileSystem;
 
-    private DirListBlock(Id id, AtlantFileSystem fileSystem, DirList entryList) {
+    private DirListBlock(Id id, AtlantFileSystem fileSystem, DirList dirList) {
         this.id = id;
-        this.entryList = entryList;
         this.fileSystem = fileSystem;
+        this.dirList = dirList;
     }
 
-    static DirListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionNotEnoughSpaceException {
+    static DirListBlock init(AtlantFileSystem fileSystem) throws BitmapRegion.NotEnoughSpaceException {
         var dirEntryList = DirList.init(fileSystem.blockSize());
         return init(fileSystem, dirEntryList);
     }
 
-    static DirListBlock init(AtlantFileSystem fileSystem, DirList dirList) throws BitmapRegionNotEnoughSpaceException {
+    static DirListBlock init(AtlantFileSystem fileSystem, DirList dirList) throws BitmapRegion.NotEnoughSpaceException {
         var reserved = fileSystem.reserveBlock();
         dirList.resize(fileSystem.blockSize());
         return new DirListBlock(reserved, fileSystem, dirList);
@@ -40,7 +40,7 @@ class DirListBlock implements Block, DirOperations {
 
     @Override
     public boolean isDirty() {
-        return entryList.isDirty();
+        return dirList.isDirty();
     }
 
     @Override
@@ -48,36 +48,36 @@ class DirListBlock implements Block, DirOperations {
         if (!isDirty()) {
             return;
         }
-        fileSystem.writeBlock(id, entryList::flush);
+        fileSystem.writeBlock(id, dirList::flush);
     }
 
-    DirList entryList() {
-        return entryList;
+    DirList dirList() {
+        return dirList;
     }
 
     @Override
     public Iterator<DirEntry> iterator() {
-        return entryList.iterator();
+        return dirList.iterator();
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
-        return entryList.add(id, fileType, name);
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirList.NotEnoughSpaceException {
+        return dirList.add(id, fileType, name);
     }
 
     @Override
     public DirEntry get(String name) throws NoSuchFileException {
-        return entryList.get(name);
+        return dirList.get(name);
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
-        entryList.rename(name, newName);
+    public void rename(String name, String newName) throws NoSuchFileException, DirList.NotEnoughSpaceException {
+        dirList.rename(name, newName);
     }
 
     @Override
     public void delete(String name) throws NoSuchFileException {
-        entryList.delete(name);
+        dirList.delete(name);
     }
 
     @Override

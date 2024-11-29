@@ -19,7 +19,7 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
         return BlockMapping.read(inode, buffer, DirBlockMapping::new);
     }
 
-    static DirBlockMapping init(AtlantFileSystem inode, DirList dirList) throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    static DirBlockMapping init(AtlantFileSystem inode, DirList dirList) throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         var result = new DirBlockMapping(inode);
         result.add(DirListBlock.init(inode, dirList));
         result.dirty = true;
@@ -56,14 +56,14 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws BitmapRegion.NotEnoughSpaceException, DirList.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         for (int i = 0; i < blocksCount(); i++) {
             try {
                 var entryList = get(i);
                 var add = entryList.add(id, fileType, name);
                 entryList.flush();
                 return add;
-            } catch (DirNotEnoughSpaceException _) {
+            } catch (DirList.NotEnoughSpaceException _) {
                 // continue
             }
         }
@@ -79,7 +79,7 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
         for (int i = 0; i < blocksCount; i++) {
             try {
                 var entryList = get(i);
-                return entryList.entryList().get(name);
+                return entryList.dirList().get(name);
             } catch (NoSuchFileException _) {
                 // continue
             }
@@ -88,11 +88,11 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirNotEnoughSpaceException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirList.NotEnoughSpaceException {
         for (int i = 0; i < blocksCount; i++) {
             try {
                 var entryList = get(i);
-                entryList.entryList().rename(name, newName);
+                entryList.dirList().rename(name, newName);
                 entryList.flush();
                 return;
             } catch (NoSuchFileException _) {
@@ -107,7 +107,7 @@ class DirBlockMapping extends BlockMapping<DirListBlock> implements DirIblock {
         for (int i = 0; i < blocksCount; i++) {
             try {
                 var entryList = get(i);
-                entryList.entryList().delete(name);
+                entryList.dirList().delete(name);
                 entryList.flush();
                 return;
             } catch (NoSuchFileException _) {

@@ -24,12 +24,12 @@ class FileBlockMappingTest {
 
     @InjectMocks
     private @Spy FileBlockMapping fileBlockMapping;
-    private @Mock Inode inode;
+    private @Mock Inode<?> inode;
     private @Mock AtlantFileSystem fileSystem;
     private final List<DataBlock> dataBlocks = new ArrayList<>();
 
     @BeforeEach
-    void beforeEach() throws BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+    void beforeEach() throws BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         lenient().when(fileSystem.blockSize()).thenReturn(8);
         lenient().when(fileSystem.inodeSize()).thenReturn(32);
         lenient().when(inode.blockSize()).thenReturn(8);
@@ -85,7 +85,7 @@ class FileBlockMappingTest {
             long position,
             int bufferPosition,
             int bufferRemaining,
-            String expectedRead) throws DataNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException {
+            String expectedRead) throws Data.NotEnoughSpaceException, BitmapRegion.NotEnoughSpaceException {
         // Given
         addDataBlock(block0);
         addDataBlock(block1);
@@ -150,7 +150,7 @@ class FileBlockMappingTest {
             String bufferValue,
             String expectedBlock0,
             String expectedBlock1,
-            String expectedBlock2) throws DataNotEnoughSpaceException, BitmapRegionNotEnoughSpaceException, IndirectBlockNotEnoughSpaceException {
+            String expectedBlock2) throws Data.NotEnoughSpaceException, BitmapRegion.NotEnoughSpaceException, IndirectBlock.NotEnoughSpaceException {
         // Given
         addDataBlock(block0);
         addDataBlock(block1);
@@ -176,7 +176,7 @@ class FileBlockMappingTest {
         }
     }
 
-    private void addDataBlock(String value) throws BitmapRegionNotEnoughSpaceException {
+    private void addDataBlock(String value) throws BitmapRegion.NotEnoughSpaceException {
         if (value != null) {
             var dataBlock = DataBlock.init(fileSystem, bytes(value));
             dataBlocks.add(dataBlock);
