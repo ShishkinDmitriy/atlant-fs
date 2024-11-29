@@ -2,7 +2,7 @@ package org.atlantfs;
 
 import java.nio.ByteBuffer;
 
-enum IBlockType {
+enum IblockType {
 
     FILE_INLINE_DATA(1, FileType.REGULAR_FILE, (fileSystem, buffer, size, _) -> DataIblock.read(fileSystem, buffer, size)),
 
@@ -10,7 +10,7 @@ enum IBlockType {
 
     FILE_EXTENT_TREE(3, FileType.REGULAR_FILE, (_, _, _, _) -> null), // Unsupported yet
 
-    DIR_INLINE_LIST(4, FileType.DIRECTORY, (_, buffer, _, _) -> DirEntryListIblock.read(buffer)),
+    DIR_INLINE_LIST(4, FileType.DIRECTORY, (_, buffer, _, _) -> DirListIblock.read(buffer)),
 
     DIR_BLOCK_MAPPING(5, FileType.DIRECTORY, (fileSystem, buffer, _, _) -> DirBlockMapping.read(fileSystem, buffer)),
 
@@ -22,13 +22,13 @@ enum IBlockType {
     final FileType fileType;
     final Factory factory;
 
-    IBlockType(int value, FileType fileType, Factory factory) {
+    IblockType(int value, FileType fileType, Factory factory) {
         this.value = (byte) value;
         this.fileType = fileType;
         this.factory = factory;
     }
 
-    static IBlockType read(ByteBuffer buffer) {
+    static IblockType read(ByteBuffer buffer) {
         var value = buffer.get();
         return switch (value) {
             case 1 -> FILE_INLINE_DATA;
@@ -41,7 +41,7 @@ enum IBlockType {
         };
     }
 
-    IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount) {
+    Iblock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount) {
         return factory.create(fileSystem, buffer, size, blocksCount);
     }
 
@@ -49,13 +49,9 @@ enum IBlockType {
         buffer.put(value);
     }
 
-    FileType getFileType() {
-        return fileType;
-    }
-
     interface Factory {
 
-        IBlock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount);
+        Iblock create(AtlantFileSystem fileSystem, ByteBuffer buffer, long size, int blocksCount);
 
     }
 

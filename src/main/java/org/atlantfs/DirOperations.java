@@ -3,7 +3,7 @@ package org.atlantfs;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-interface DirectoryOperations {
+interface DirOperations {
 
     Iterator<DirEntry> iterator();
 

@@ -5,27 +5,27 @@ import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirEntryListIblock implements DirIblock {
+class DirListIblock implements DirIblock {
 
-    private final DirEntryList entryList;
+    private final DirList entryList;
 
-    private DirEntryListIblock(DirEntryList entryList) {
+    private DirListIblock(DirList entryList) {
         this.entryList = entryList;
     }
 
-    static DirEntryListIblock init(AtlantFileSystem fileSystem) {
-        var dirEntryList = DirEntryList.init(fileSystem.iblockSize());
+    static DirListIblock init(AtlantFileSystem fileSystem) {
+        var dirEntryList = DirList.init(fileSystem.iblockSize());
         return init(fileSystem, dirEntryList);
     }
 
-    static DirEntryListIblock init(AtlantFileSystem fileSystem, DirEntryList dirEntryList) {
-        dirEntryList.resize(fileSystem.iblockSize());
-        return new DirEntryListIblock(dirEntryList);
+    static DirListIblock init(AtlantFileSystem fileSystem, DirList dirList) {
+        dirList.resize(fileSystem.iblockSize());
+        return new DirListIblock(dirList);
     }
 
-    static DirEntryListIblock read(ByteBuffer buffer) {
-        var dirEntryList = DirEntryList.read(buffer);
-        return new DirEntryListIblock(dirEntryList);
+    static DirListIblock read(ByteBuffer buffer) {
+        var dirEntryList = DirList.read(buffer);
+        return new DirListIblock(dirEntryList);
     }
 
     @Override
@@ -33,7 +33,7 @@ class DirEntryListIblock implements DirIblock {
         entryList.flush(buffer);
     }
 
-    DirEntryList entryList() {
+    DirList entryList() {
         return entryList;
     }
 
@@ -43,7 +43,7 @@ class DirEntryListIblock implements DirIblock {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
         return entryList.add(id, fileType, name);
     }
 
@@ -53,7 +53,7 @@ class DirEntryListIblock implements DirIblock {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
         entryList.rename(name, newName);
     }
 
@@ -67,8 +67,8 @@ class DirEntryListIblock implements DirIblock {
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.DIR_INLINE_LIST;
+    public IblockType type() {
+        return IblockType.DIR_INLINE_LIST;
     }
 
     @Override

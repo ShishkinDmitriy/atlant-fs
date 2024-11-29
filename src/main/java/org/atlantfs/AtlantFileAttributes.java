@@ -37,7 +37,7 @@ public class AtlantFileAttributes implements BasicFileAttributes {
 
     @Override
     public boolean isDirectory() {
-        return inode instanceof DirectoryOperations;
+        return inode instanceof DirOperations;
     }
 
     @Override

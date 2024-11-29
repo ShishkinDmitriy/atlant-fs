@@ -53,8 +53,8 @@ class DataIblock implements FileIblock {
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.FILE_INLINE_DATA;
+    public IblockType type() {
+        return IblockType.FILE_INLINE_DATA;
     }
 
     @Override

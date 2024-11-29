@@ -4,33 +4,33 @@ import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 
-class DirEntryListBlock implements Block, DirectoryOperations {
+class DirListBlock implements Block, DirOperations {
 
     private final Id id;
-    private final DirEntryList entryList;
+    private final DirList entryList;
     private final AtlantFileSystem fileSystem;
 
-    private DirEntryListBlock(Id id, AtlantFileSystem fileSystem, DirEntryList entryList) {
+    private DirListBlock(Id id, AtlantFileSystem fileSystem, DirList entryList) {
         this.id = id;
         this.entryList = entryList;
         this.fileSystem = fileSystem;
     }
 
-    static DirEntryListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionOutOfMemoryException {
-        var dirEntryList = DirEntryList.init(fileSystem.blockSize());
+    static DirListBlock init(AtlantFileSystem fileSystem) throws BitmapRegionOutOfMemoryException {
+        var dirEntryList = DirList.init(fileSystem.blockSize());
         return init(fileSystem, dirEntryList);
     }
 
-    static DirEntryListBlock init(AtlantFileSystem fileSystem, DirEntryList dirEntryList) throws BitmapRegionOutOfMemoryException {
+    static DirListBlock init(AtlantFileSystem fileSystem, DirList dirList) throws BitmapRegionOutOfMemoryException {
         var reserved = fileSystem.reserveBlock();
-        dirEntryList.resize(fileSystem.blockSize());
-        return new DirEntryListBlock(reserved, fileSystem, dirEntryList);
+        dirList.resize(fileSystem.blockSize());
+        return new DirListBlock(reserved, fileSystem, dirList);
     }
 
-    static DirEntryListBlock read(AtlantFileSystem fileSystem, Id id) {
+    static DirListBlock read(AtlantFileSystem fileSystem, Id id) {
         var buffer = fileSystem.readBlock(id);
-        var dirEntryList = DirEntryList.read(buffer);
-        return new DirEntryListBlock(id, fileSystem, dirEntryList);
+        var dirEntryList = DirList.read(buffer);
+        return new DirListBlock(id, fileSystem, dirEntryList);
     }
 
     @Override
@@ -51,7 +51,7 @@ class DirEntryListBlock implements Block, DirectoryOperations {
         fileSystem.writeBlock(id, entryList::flush);
     }
 
-    DirEntryList entryList() {
+    DirList entryList() {
         return entryList;
     }
 
@@ -61,7 +61,7 @@ class DirEntryListBlock implements Block, DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
         return entryList.add(id, fileType, name);
     }
 
@@ -71,7 +71,7 @@ class DirEntryListBlock implements Block, DirectoryOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException, BitmapRegionOutOfMemoryException {
         entryList.rename(name, newName);
     }
 

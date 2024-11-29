@@ -13,9 +13,9 @@ import java.util.stream.IntStream;
 /**
  * Represent a list of {@link DirEntry}.
  */
-final class DirEntryList implements DirectoryOperations {
+final class DirList implements DirOperations {
 
-    private static final Logger log = Logger.getLogger(DirEntryList.class.getName());
+    private static final Logger log = Logger.getLogger(DirList.class.getName());
 
     /**
      * The number of bytes occupied by this list.
@@ -29,13 +29,13 @@ final class DirEntryList implements DirectoryOperations {
      */
     private final List<DirEntry> entries;
 
-    DirEntryList(int length, List<DirEntry> entries) {
+    DirList(int length, List<DirEntry> entries) {
         this.length = length;
         this.entries = entries;
         checkInvariant();
     }
 
-    DirEntryList(int length) {
+    DirList(int length) {
         List<DirEntry> entries = new ArrayList<>();
         entries.add(DirEntry.empty((short) length));
         this.length = length;
@@ -43,11 +43,11 @@ final class DirEntryList implements DirectoryOperations {
         checkInvariant();
     }
 
-    static DirEntryList init(int length) {
-        return new DirEntryList(length);
+    static DirList init(int length) {
+        return new DirList(length);
     }
 
-    static DirEntryList read(ByteBuffer buffer) {
+    static DirList read(ByteBuffer buffer) {
         List<DirEntry> entries = new ArrayList<>();
         var length = buffer.remaining();
         while (buffer.hasRemaining()) {
@@ -67,7 +67,7 @@ final class DirEntryList implements DirectoryOperations {
             }
         }
         assert !buffer.hasRemaining();
-        var block = new DirEntryList(length, entries);
+        var block = new DirList(length, entries);
         block.checkInvariant();
         return block;
     }
@@ -84,7 +84,7 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException {
         DirEntry newEntry;
         if (isEmpty()) {
             newEntry = entries.getFirst();
@@ -104,7 +104,7 @@ final class DirEntryList implements DirectoryOperations {
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException {
         log.fine(() -> "Renaming entry [oldName=" + name + ", newName=" + newName + "]...");
         var index = findByName(name);
         log.finer(() -> "Found entry to rename [index=" + index + "]");
@@ -160,11 +160,11 @@ final class DirEntryList implements DirectoryOperations {
                 .orElseThrow(() -> new NoSuchFileException("File [" + name + "] was not found"));
     }
 
-    int findByAvailableSpace(String newName) throws DirectoryOutOfMemoryException {
+    int findByAvailableSpace(String newName) throws DirOutOfMemoryException {
         return IntStream.range(0, entries.size())
                 .filter(i -> entries.get(i).canBeSplit(newName))
                 .findFirst()
-                .orElseThrow(() -> new DirEntryListOfMemoryException("Not enough space"));
+                .orElseThrow(() -> new DirListOfMemoryException("Not enough space"));
     }
 
     public void resize(int newLength) {

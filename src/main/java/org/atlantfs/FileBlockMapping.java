@@ -130,8 +130,8 @@ class FileBlockMapping extends AbstractBlockMapping<DataBlock> implements FileIb
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.FILE_BLOCK_MAPPING;
+    public IblockType type() {
+        return IblockType.FILE_BLOCK_MAPPING;
     }
 
     @Override

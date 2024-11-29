@@ -89,7 +89,7 @@ class CreateFileTest {
         var atlantConfig = AtlantConfig.defaults()
                 .blockSize(128)
                 .inodeSize(32)
-                .numberOfBlockBitmaps(1)
+                .numberOfBlockBitmaps(2)
                 .numberOfInodeBitmaps(2)
                 .numberOfInodeTables(512);
         try (var fileSystem = FileSystems.newFileSystem(atlantUri, atlantConfig.asMap())) {

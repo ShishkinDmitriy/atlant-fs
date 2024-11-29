@@ -1,4 +1,4 @@
 package org.atlantfs;
 
-interface FileIblock extends IBlock, FileOperations {
+interface FileIblock extends Iblock, FileOperations {
 }

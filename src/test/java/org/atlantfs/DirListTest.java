@@ -20,9 +20,9 @@ import static org.atlantfs.util.RandomUtil.randomInt;
 import static org.atlantfs.util.RandomUtil.randomString;
 
 @ExtendWith(LoggingExtension.class)
-class DirEntryListTest {
+class DirListTest {
 
-    //region DirEntryList::read
+    //region DirList::read
     @Test
     void read_should_parseDirEntries_when_onlyOneGoodEntry() {
         // Given
@@ -30,7 +30,7 @@ class DirEntryListTest {
                 40E2 0100 1000 0301 6469 7200 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -48,7 +48,7 @@ class DirEntryListTest {
                 F1FB 0900 1000 0402 6469 7232 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -66,7 +66,7 @@ class DirEntryListTest {
                 F1FB 0900 2000 0402 6469 7232 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -85,7 +85,7 @@ class DirEntryListTest {
                 0000 0000 0000 0000 0000 0000 0000 0000\
                 """);
         // When
-        var result = DirEntryList.read(buffer);
+        var result = DirList.read(buffer);
         // Then
         assertThat(result).isNotNull();
         assertSoftly(softly -> {
@@ -97,7 +97,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::delete
+    //region DirList::delete
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                     | Expected                   |
@@ -121,7 +121,7 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var block = new DirList(pos, entries);
         // When
         block.delete(nameToDelete);
         // Then
@@ -140,7 +140,7 @@ class DirEntryListTest {
         var length = (short) 1024;
         var name = randomString(255);
         var entry = DirEntry.create(position, length, Inode.Id.of(123), FileType.DIRECTORY, name);
-        var block = new DirEntryList(length, List.of(entry));
+        var block = new DirList(length, List.of(entry));
         // When
         block.delete(name);
         // Then
@@ -161,7 +161,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::add
+    //region DirList::add
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                           | Expected                                         |
@@ -175,7 +175,7 @@ class DirEntryListTest {
             String nameToAdd,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirectoryOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws DirOutOfMemoryException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -183,7 +183,7 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var block = new DirList(pos, entries);
         // When
         var result = block.add(Inode.Id.of(randomInt()), FileType.REGULAR_FILE, nameToAdd);
         // Then
@@ -198,12 +198,12 @@ class DirEntryListTest {
     }
 
     @Test
-    void should_mutateExistingEntry_when_emptyEntry() throws DirectoryOutOfMemoryException {
+    void should_mutateExistingEntry_when_emptyEntry() throws DirOutOfMemoryException {
         // Given
         short length = (short) 4096;
         Inode.Id inode = Inode.Id.of(randomInt());
         String name = randomString(255);
-        var block = new DirEntryList(length);
+        var block = new DirList(length);
         // When
         var result = block.add(inode, FileType.DIRECTORY, name);
         // Then
@@ -220,7 +220,7 @@ class DirEntryListTest {
     }
     //endregion
 
-    //region DirEntryList::rename
+    //region DirList::rename
     @ParameterizedTest
     @CsvSource(value = {
             // Initial                                    | Expected                          |
@@ -244,7 +244,7 @@ class DirEntryListTest {
             int newNameLength,
             @ConvertWith(CommaSeparatedListConverter.class) List<Short> expectedLengths,
             @ConvertWith(CommaSeparatedListConverter.class) List<String> expectedNames,
-            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirectoryOutOfMemoryException {
+            @ConvertWith(CommaSeparatedListConverter.class) List<Boolean> expectedDirty) throws NoSuchFileException, DirOutOfMemoryException {
         // Given
         List<DirEntry> entries = new ArrayList<>();
         var pos = 0;
@@ -252,7 +252,7 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var block = new DirList(pos, entries);
         var newName = randomString(newNameLength);
         // When
         block.rename(oldName, newName);
@@ -285,11 +285,11 @@ class DirEntryListTest {
             entries.add(DirEntry.create(pos, lengths.get(i), Inode.Id.of(randomInt()), FileType.DIRECTORY, names.get(i)));
             pos += lengths.get(i);
         }
-        var block = new DirEntryList(pos, entries);
+        var block = new DirList(pos, entries);
         String newName = randomString(newNameLength);
         // When Then
         assertThatThrownBy(() -> block.rename(oldName, newName))
-                .isInstanceOf(DirEntryListOfMemoryException.class)
+                .isInstanceOf(DirListOfMemoryException.class)
                 .hasMessageContaining("Not enough space");
     }
     //endregion

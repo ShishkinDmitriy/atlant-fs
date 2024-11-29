@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
-abstract class AbstractBlockMapping<B extends Block> implements IBlock {
+abstract class AbstractBlockMapping<B extends Block> implements Iblock {
 
     private static final Logger log = Logger.getLogger(AbstractBlockMapping.class.getName());
 

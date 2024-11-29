@@ -7,7 +7,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements DirIblock {
+class DirBlockMapping extends AbstractBlockMapping<DirListBlock> implements DirIblock {
 
     private static final Logger log = Logger.getLogger(DirBlockMapping.class.getName());
 
@@ -19,9 +19,9 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
         return AbstractBlockMapping.read(inode, buffer, DirBlockMapping::new);
     }
 
-    static DirBlockMapping init(AtlantFileSystem inode, DirEntryList dirEntryList) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    static DirBlockMapping init(AtlantFileSystem inode, DirList dirList) throws BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         var result = new DirBlockMapping(inode);
-        result.add(DirEntryListBlock.init(inode, dirEntryList));
+        result.add(DirListBlock.init(inode, dirList));
         result.dirty = true;
         return result;
     }
@@ -56,18 +56,18 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
     }
 
     @Override
-    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirectoryOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
+    public DirEntry add(Inode.Id id, FileType fileType, String name) throws DirOutOfMemoryException, BitmapRegionOutOfMemoryException, IndirectBlockOutOfMemoryException {
         for (int i = 0; i < blocksCount(); i++) {
             try {
                 var entryList = get(i);
                 var add = entryList.add(id, fileType, name);
                 entryList.flush();
                 return add;
-            } catch (DirectoryOutOfMemoryException _) {
+            } catch (DirOutOfMemoryException _) {
                 // continue
             }
         }
-        var entryList = DirEntryListBlock.init(fileSystem);
+        var entryList = DirListBlock.init(fileSystem);
         var add = entryList.add(id, fileType, name);
         add(entryList);
         entryList.flush();
@@ -88,7 +88,7 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
     }
 
     @Override
-    public void rename(String name, String newName) throws NoSuchFileException, DirectoryOutOfMemoryException {
+    public void rename(String name, String newName) throws NoSuchFileException, DirOutOfMemoryException {
         for (int i = 0; i < blocksCount; i++) {
             try {
                 var entryList = get(i);
@@ -126,13 +126,13 @@ class DirBlockMapping extends AbstractBlockMapping<DirEntryListBlock> implements
     }
 
     @Override
-    DirEntryListBlock readBlock(Block.Id id) {
-        return DirEntryListBlock.read(fileSystem, id);
+    DirListBlock readBlock(Block.Id id) {
+        return DirListBlock.read(fileSystem, id);
     }
 
     @Override
-    public IBlockType type() {
-        return IBlockType.DIR_BLOCK_MAPPING;
+    public IblockType type() {
+        return IblockType.DIR_BLOCK_MAPPING;
     }
 
 }
